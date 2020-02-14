@@ -1,0 +1,59 @@
+From 9d79d72a00a6acf38e63e49823abea2c2dede007 Mon Sep 17 00:00:00 2001
+From: Guillaume Deroire <guillaume.deroire@hach.com>
+Date: Fri, 25 May 2018 16:44:24 +0200
+Subject: [PATCH] Dual u-boot environment stored in UBI volumes
+
+In order to avoid u-boot environment corruption, the redundant option is used and the
+u-boot-env storage is moved into UBI volumes to benefit of UBI features (wear level etc).
+---
+ configs/colibri_vf_defconfig |  2 +-
+ include/configs/colibri_vf.h | 13 +++++++++++++
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+Index: git/configs/colibri_vf_defconfig
+===================================================================
+--- git.orig/configs/colibri_vf_defconfig
++++ git/configs/colibri_vf_defconfig
+@@ -5,7 +5,7 @@ CONFIG_TARGET_COLIBRI_VF=y
+ CONFIG_IMX_BOOTAUX=y
+ CONFIG_DEFAULT_DEVICE_TREE="vf610-colibri"
+ CONFIG_FIT=y
+-CONFIG_SYS_EXTRA_OPTIONS="IMX_CONFIG=board/toradex/colibri_vf/imximage.cfg,ENV_IS_IN_NAND,IMX_NAND"
++CONFIG_SYS_EXTRA_OPTIONS="IMX_CONFIG=board/toradex/colibri_vf/imximage.cfg,IMX_NAND"
+ CONFIG_BOOTDELAY=1
+ CONFIG_VERSION_VARIABLE=y
+ # CONFIG_DISPLAY_BOARDINFO is not set
+Index: git/include/configs/colibri_vf.h
+===================================================================
+--- git.orig/include/configs/colibri_vf.h
++++ git/include/configs/colibri_vf.h
+@@ -82,7 +82,6 @@
+ #define MTDPARTS_DEFAULT	"mtdparts=vf610_nfc:"		\
+ 				"128k(vf-bcb)ro,"		\
+ 				"1408k(u-boot)ro,"		\
+-				"512k(u-boot-env),"		\
+ 				"-(ubi)"
+ 
+ #define CONFIG_MMC
+@@ -282,6 +281,21 @@
+ /* Environment organization */
+ #define CONFIG_SYS_NO_FLASH
+ 
++#define CONFIG_CMD_UBI			1
++#define CONFIG_ENV_IS_IN_UBI
++
++#ifdef CONFIG_ENV_IS_IN_UBI
++#define CONFIG_ENV_UBI_PART		"ubi"
++#define CONFIG_ENV_UBI_VOLUME		"u-boot-env"
++#define CONFIG_ENV_UBI_VOLUME_REDUND	"u-boot-env-redund"
++/* PEB (Physical Erase Block) size is 64 * 2048 and 2 pages are used for overhead EC (Error counter) and VID (Volume Identifier) headers */
++/* So LEB (Logical Erase Block) size is (64-2) * 2048 */
++#define CONFIG_ENV_SIZE			( (64-2) * 2048)
++
++#define CONFIG_UBI_SILENCE_MSG
++#define CONFIG_UBIFS_SILENCE_MSG
++#endif
++
+ #ifdef CONFIG_ENV_IS_IN_MMC
+ #define CONFIG_SYS_MMC_ENV_DEV		0
+ #define CONFIG_ENV_OFFSET		(12 * 64 * 1024)

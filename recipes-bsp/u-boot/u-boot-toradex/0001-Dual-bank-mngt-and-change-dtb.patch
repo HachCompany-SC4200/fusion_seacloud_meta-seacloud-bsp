@@ -21,7 +21,7 @@ Index: git/include/configs/colibri_vf.h
  #ifdef CONFIG_FSL_DCU_FB
  #define CONFIG_VIDEO
  #define CONFIG_CMD_BMP
-@@ -145,18 +148,29 @@
+@@ -145,18 +148,56 @@
  		"run fdt_fixup && bootz ${kernel_addr_r} - ${fdt_addr_r}\0" \
  
  #define UBI_BOOTCMD	\
@@ -35,7 +35,7 @@ Index: git/include/configs/colibri_vf.h
 -		"ubi read ${kernel_addr_r} kernel && " \
 -		"ubi read ${fdt_addr_r} dtb && " \
 -		"run fdt_fixup && bootz ${kernel_addr_r} - ${fdt_addr_r}\0" \
-+	"ubiboot=run updatecheck; run setup; " \
++	"ubiboot=run envcheck; run updatecheck; run setup; " \
 +	"setenv bootargs ${defargs} ${ubiargs} root=ubi0:rootfs-${bootable_partition} " \
 +	"${setupargs} ${vidargs}; echo Booting from NAND...; " \
 +	"ubi part ubi && " \
@@ -43,29 +43,56 @@ Index: git/include/configs/colibri_vf.h
 +	"ubi read ${fdt_addr_r} dtb-${bootable_partition} && " \
 +	"run fdt_fixup && bootz ${kernel_addr_r} - ${fdt_addr_r}\0" \
 +
-+#define CHANGE_BOOT_PARTITION	\
-+	"changebootpartition=setexpr bootable_partition ${bootable_partition} + 1 && " \
-+	"setexpr bootable_partition ${bootable_partition} % 2 && setenv updateinprogress 0 && " \
-+	"saveenv\0" \
++/*
++  Save environment into flash if variables are the u-boot default
++  bootable_partition variable is used as a marker between default and flash
++*/
++#define ENV_CHECK	\
++	"envcheck=" \
++	"if env exists bootable_partition; then " \
++	"  echo 'Environment loaded from flash'; " \
++	"else " \
++	"  setenv bootable_partition 0; setenv fdtfile ${soc}-colibri-${fdt_board}.dtb ; saveenv && echo 'Environment stored in flash'; " \
++	"fi;\0"
 +
++/*
++  Do a rollback: change bootable partition and disable update
++*/
++#define ROLLBACK_PARTITION	\
++	"rollback_partition=" \
++	"setexpr bootable_partition ${bootable_partition} + 1 && setexpr bootable_partition ${bootable_partition} % 2 && " \
++	"setenv updateinprogress 0 && " \
++	"echo 'Update has failed, return to partiton:' && pri bootable_partition;\0"
++
++/*
++  During update, if no more reboot are allowed, trigger the rollback mechanism
++*/
 +#define UPDATE_CHECK	\
-+	"updatecheck= pri updateinprogress && " \
-+	"if test ${updateinprogress} -eq 1; then; echo 'update in progress on:' && pri bootable_partition && pri boottriesremaining && " \
-+	"setexpr boottriesremaining ${boottriesremaining} - 1 && saveenv && pri boottriesremaining && " \
-+	"if test ${boottriesremaining} -eq 0; then; run changebootpartition && " \
-+	"echo 'Update has failed, return to partiton:' && pri bootable_partition; fi; else; echo 'boot'; fi;\0" \
++	"updatecheck=" \
++	"pri updateinprogress && " \
++	"if test ${updateinprogress} -eq 1; then; " \
++	"  echo 'update in progress on:' && pri bootable_partition && pri boottriesremaining && " \
++	"  setexpr boottriesremaining ${boottriesremaining} - 1 && pri boottriesremaining && " \
++	"  if test ${boottriesremaining} -eq 0; then; " \
++	"    run rollback_partition; " \
++	"  fi; " \
++	"  saveenv;" \
++	"else; " \
++	"  echo 'boot'; " \
++	"fi;\0"
  
--#define CONFIG_BOOTCOMMAND "run ubiboot; " \
+ #define CONFIG_BOOTCOMMAND "run ubiboot; " \
 -	"setenv fdtfile ${soc}-colibri-${fdt_board}.dtb && run distro_bootcmd;"
-+#define CONFIG_BOOTCOMMAND "setenv fdtfile ${soc}-colibri-${fdt_board}.dtb; saveenv; run ubiboot; run distro_bootcmd;" \
++	"run distro_bootcmd;"
  
  #define BOOTENV_RUN_NET_USB_START ""
  #define BOOT_TARGET_DEVICES(func) \
-@@ -174,11 +188,16 @@
+@@ -174,11 +215,16 @@
  	NFS_BOOTCMD \
  	SD_BOOTCMD \
  	UBI_BOOTCMD \
-+	CHANGE_BOOT_PARTITION \
++	ENV_CHECK \
++	ROLLBACK_PARTITION \
 +	UPDATE_CHECK \
  	"console=ttyLP0\0" \
  	"defargs=\0" \
@@ -73,7 +100,6 @@ Index: git/include/configs/colibri_vf.h
 -	"fdt_board=eval-v3\0" \
 +	"fdt_board=XMF1345-B\0" \
  	"fdt_fixup=;\0" \
-+	"bootable_partition=0\0" \
 +	"updateinprogress=0\0" \
 +	"boottriesremaining=4\0" \
  	"kernel_file=zImage\0" \

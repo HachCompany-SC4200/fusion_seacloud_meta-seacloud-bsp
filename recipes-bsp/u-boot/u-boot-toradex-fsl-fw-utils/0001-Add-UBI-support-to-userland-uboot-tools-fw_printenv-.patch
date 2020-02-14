@@ -1,0 +1,57 @@
+From 74bc89e04d8bac39d9b35f35f1b0806a4faeae67 Mon Sep 17 00:00:00 2001
+From: Guillaume Deroire <guillaume.deroire@hach.com>
+Date: Wed, 23 May 2018 15:43:35 +0200
+Subject: [PATCH] Add UBI support to userland uboot tools (fw_printenv,
+ fw_seenv)
+
+Userland u-boot tools must be configured the same way as u-boot to be able to 
+access the u-boot-env storage located in UBI or in MTD (for older packages).
+---
+ configs/colibri_vf_defconfig |  3 ++-
+ include/configs/colibri_vf.h | 13 +++++++++++++
+ 2 files changed, 15 insertions(+), 1 deletion(-)
+
+Index: git/configs/colibri_vf_defconfig
+===================================================================
+--- git.orig/configs/colibri_vf_defconfig
++++ git/configs/colibri_vf_defconfig
+@@ -5,7 +5,7 @@ CONFIG_TARGET_COLIBRI_VF=y
+ CONFIG_IMX_BOOTAUX=y
+ CONFIG_DEFAULT_DEVICE_TREE="vf610-colibri"
+ CONFIG_FIT=y
+-CONFIG_SYS_EXTRA_OPTIONS="IMX_CONFIG=board/toradex/colibri_vf/imximage.cfg,ENV_IS_IN_NAND,IMX_NAND"
++CONFIG_SYS_EXTRA_OPTIONS="IMX_CONFIG=board/toradex/colibri_vf/imximage.cfg,IMX_NAND"
+ CONFIG_BOOTDELAY=1
+ CONFIG_VERSION_VARIABLE=y
+ # CONFIG_DISPLAY_BOARDINFO is not set
+@@ -52,3 +52,4 @@ CONFIG_G_DNL_VENDOR_NUM=0x1b67
+ CONFIG_G_DNL_PRODUCT_NUM=0x4000
+ CONFIG_OF_LIBFDT_OVERLAY=y
+ # CONFIG_EFI_LOADER is not set
++
+Index: git/include/configs/colibri_vf.h
+===================================================================
+--- git.orig/include/configs/colibri_vf.h
++++ git/include/configs/colibri_vf.h
+@@ -236,6 +236,21 @@
+ /* Environment organization */
+ #define CONFIG_SYS_NO_FLASH
+ 
++#define CONFIG_CMD_UBI			1
++#define CONFIG_ENV_IS_IN_UBI
++
++#ifdef CONFIG_ENV_IS_IN_UBI
++#define CONFIG_ENV_UBI_PART		"ubi"
++#define CONFIG_ENV_UBI_VOLUME		"u-boot-env"
++#define CONFIG_ENV_UBI_VOLUME_REDUND	"u-boot-env-redund"
++/* PEB (Physical Erase Block) size is 64 * 2048 and 2 pages are used for overhead EC (Error counter) and VID (Volume Identifier) headers */
++/* So LEB (Logical Erase Block) size is (64-2) * 2048 */
++#define CONFIG_ENV_SIZE			( (64-2) * 2048)
++
++#define CONFIG_UBI_SILENCE_MSG
++#define CONFIG_UBIFS_SILENCE_MSG
++#endif
++
+ #ifdef CONFIG_ENV_IS_IN_MMC
+ #define CONFIG_SYS_MMC_ENV_DEV		0
+ #define CONFIG_ENV_OFFSET		(12 * 64 * 1024)

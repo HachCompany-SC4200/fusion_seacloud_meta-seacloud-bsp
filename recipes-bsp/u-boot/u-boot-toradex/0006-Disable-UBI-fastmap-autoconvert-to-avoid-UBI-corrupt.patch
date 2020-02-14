@@ -1,0 +1,31 @@
+From bbe9961b6317ae8bb4ec70995c7b3e7a50a53589 Mon Sep 17 00:00:00 2001
+From: Guillaume Deroire <guillaume.deroire@hach.com>
+Date: Tue, 20 Nov 2018 09:53:53 +0100
+Subject: [PATCH] Disable UBI fastmap autoconvert to avoid UBI corruption
+
+With this option set, it appears the UBI volumes are corrupted by the
+kernel after first startup when the u-boot environment variables are moved
+into UBI volume with redundancy.
+To avoid this corruption, the fastmap autoconvert option is disabled. This
+will only slow down a bit the UBI mount process.
+---
+ include/configs/colibri_vf.h | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/include/configs/colibri_vf.h b/include/configs/colibri_vf.h
+index 0698100..18be7f1 100644
+--- a/include/configs/colibri_vf.h
++++ b/include/configs/colibri_vf.h
+@@ -147,8 +147,7 @@
+ 		"run fdt_fixup && bootz ${kernel_addr_r} - ${fdt_addr_r}\0" \
+ 
+ #define UBI_BOOTCMD	\
+-	"ubiargs=ubi.mtd=ubi rootfstype=ubifs " \
+-		"ubi.fm_autoconvert=1\0" \
++	"ubiargs=ubi.mtd=ubi rootfstype=ubifs\0" \
+ 	"ubiboot=run envcheck; run updatecheck; run setup; " \
+ 	"setenv bootargs ${defargs} ${ubiargs} root=ubi0:rootfs-${bootable_partition} " \
+ 	"${setupargs} ${vidargs}; echo Booting from NAND...; " \
+-- 
+2.7.4
+
