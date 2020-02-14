@@ -7,11 +7,11 @@ Subject: [PATCH] Dual bank mngt and change dtb
  include/configs/colibri_vf.h | 41 ++++++++++++++++++++++++++++++-----------
  1 file changed, 30 insertions(+), 11 deletions(-)
 
-diff --git a/include/configs/colibri_vf.h b/include/configs/colibri_vf.h
-index 9fc65a5..6b5a848 100644
---- a/include/configs/colibri_vf.h
-+++ b/include/configs/colibri_vf.h
-@@ -33,6 +33,9 @@
+Index: git/include/configs/colibri_vf.h
+===================================================================
+--- git.orig/include/configs/colibri_vf.h
++++ git/include/configs/colibri_vf.h
+@@ -32,6 +32,9 @@
  
  #define CONFIG_FSL_DCU_FB
  
@@ -21,7 +21,7 @@ index 9fc65a5..6b5a848 100644
  #ifdef CONFIG_FSL_DCU_FB
  #define CONFIG_VIDEO
  #define CONFIG_CMD_BMP
-@@ -146,18 +149,29 @@
+@@ -145,18 +148,29 @@
  		"run fdt_fixup && bootz ${kernel_addr_r} - ${fdt_addr_r}\0" \
  
  #define UBI_BOOTCMD	\
@@ -61,7 +61,7 @@ index 9fc65a5..6b5a848 100644
  
  #define BOOTENV_RUN_NET_USB_START ""
  #define BOOT_TARGET_DEVICES(func) \
-@@ -175,11 +189,16 @@
+@@ -174,11 +188,16 @@
  	NFS_BOOTCMD \
  	SD_BOOTCMD \
  	UBI_BOOTCMD \
@@ -79,6 +79,3 @@ index 9fc65a5..6b5a848 100644
  	"kernel_file=zImage\0" \
  	"mtdparts=" MTDPARTS_DEFAULT "\0" \
  	"setethupdate=if env exists ethaddr; then; else setenv ethaddr " \
--- 
-2.7.4
-

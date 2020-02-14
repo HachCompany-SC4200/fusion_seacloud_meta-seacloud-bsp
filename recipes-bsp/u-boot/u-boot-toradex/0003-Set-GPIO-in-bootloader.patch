@@ -1,0 +1,530 @@
+From b5ab37eb4a7f162d8d34acc9c4c86031ca29a046 Mon Sep 17 00:00:00 2001
+From: Guillaume Deroire <guillaume.deroire@hach.com>
+Date: Wed, 21 Feb 2018 18:06:00 +0100
+Subject: [PATCH] Set pinctrl for LED in bootloader
+
+---
+ arch/arm/include/asm/arch-vf610/iomux-vf610.h | 27 ++++++--
+ board/toradex/colibri_vf/colibri_vf.c         | 91 ++++++++++++++++++++++++---
+ 2 files changed, 106 insertions(+), 12 deletions(-)
+
+Index: git/arch/arm/include/asm/arch-vf610/iomux-vf610.h
+===================================================================
+--- git.orig/arch/arm/include/asm/arch-vf610/iomux-vf610.h
++++ git/arch/arm/include/asm/arch-vf610/iomux-vf610.h
+@@ -44,19 +44,83 @@
+ #define VF610_DCU_PAD_CTRL	(PAD_CTL_SPEED_MED | PAD_CTL_SRE | \
+ 				PAD_CTL_DSE_37ohm | PAD_CTL_OBE_ENABLE)
+ 
++/*
++ For all outputs, the GPIO is configured input only to keep the signal to 1
++ until the gpio will be configured with gpio_request/gpio_direction_output that
++ will set it also in output.
++ IBE flag is kept to be able to read gpio state from u-boot
++*/
++
++/*
++ Config structure appears in that order:
++ - input mode
++ - output mode
++ - pull up/down settings
++*/
++
++#define INPUT_PAD		(PAD_CTL_IBE_ENABLE | PAD_CTL_HYS )
++#define OUTPUT_CMOS		(PAD_CTL_DSE_150ohm)
++#define OUTPUT_OPENDRAIN	(OUTPUT_CMOS | PAD_CTL_ODE)
++
++// CMOS
++#define LED_PAD_CTRL		(INPUT_PAD | \
++				OUTPUT_CMOS)
++
++// 100k pull-up - open drain
++#define RESET_PAD_CTRL		(INPUT_PAD | \
++				OUTPUT_OPENDRAIN | \
++				PAD_CTL_PUS_100K_UP)
++
++// open drain
++#define RESETCB_PAD_CTRL	(INPUT_PAD | \
++				OUTPUT_OPENDRAIN)
++
++// 100k pull-up - CMOS
++#define RESETRF_PAD_CTRL	(INPUT_PAD | \
++				OUTPUT_CMOS | \
++				PAD_CTL_PUS_100K_UP)
++
++// 100k pull-down input
++#define BUTTON_PAD_CTRL		(INPUT_PAD | \
++				PAD_CTL_PUS_100K_DOWN)
++
++// 22k pull-up input
++#define IRQ_PAD_CTRL		(INPUT_PAD | \
++				PAD_CTL_PUS_22K_UP)
++
++// CMOS
++#define WDOG_EN_PAD_CTRL	(INPUT_PAD | \
++				OUTPUT_CMOS)
++
++// CMOS
++#define WDOG_WDI_PAD_CTRL	(INPUT_PAD | \
++				OUTPUT_CMOS)
++
++// 22k pull-up - open drain
++#define RF_3G_EN_PAD_CTRL	(INPUT_PAD | \
++				OUTPUT_OPENDRAIN | \
++				PAD_CTL_PUS_22K_UP)
++
++// 22k pull-up - open drain
++#define RF_WLAN_EN_PAD_CTRL	(INPUT_PAD | \
++				OUTPUT_OPENDRAIN | \
++				PAD_CTL_PUS_22K_UP)
++
++
+ enum {
+ 	VF610_PAD_PTA6__RMII0_CLKIN		= IOMUX_PAD(0x0000, 0x0000, 2, __NA_, 0, VF610_ENET_PAD_CTRL),
+ 	VF610_PAD_PTA6__RMII0_CLKOUT		= IOMUX_PAD(0x0000, 0x0000, 1, __NA_, 0, VF610_ENET_PAD_CTRL),
+-	VF610_PAD_PTA7__GPIO_134		= IOMUX_PAD(0x0218, 0x0218, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTA7__GPIO_134		= IOMUX_PAD(0x0218, 0x0218, 0, __NA_, 0, RF_3G_EN_PAD_CTRL),		/* SODIMM 96 - 3G Enable */
+ 	VF610_PAD_PTA17__GPIO_7			= IOMUX_PAD(0x001c, 0x001c, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+-	VF610_PAD_PTA20__GPIO_10		= IOMUX_PAD(0x0028, 0x0028, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+-	VF610_PAD_PTA21__GPIO_11		= IOMUX_PAD(0x002c, 0x002c, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+-	VF610_PAD_PTA30__GPIO_20		= IOMUX_PAD(0x0050, 0x0050, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+-	VF610_PAD_PTA31__GPIO_21		= IOMUX_PAD(0x0054, 0x0054, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTA20__GPIO_10		= IOMUX_PAD(0x0028, 0x0028, 0, __NA_, 0, BUTTON_PAD_CTRL),		/* SODIMM 23 - Button 3 */
++	VF610_PAD_PTA21__GPIO_11		= IOMUX_PAD(0x002c, 0x002c, 0, __NA_, 0, BUTTON_PAD_CTRL),		/* SODIMM 31 - Button 5 */
++	VF610_PAD_PTA30__GPIO_20		= IOMUX_PAD(0x0050, 0x0050, 0, __NA_, 0, BUTTON_PAD_CTRL),		/* SODIMM 37 - Button 6 */
++	VF610_PAD_PTA31__GPIO_21		= IOMUX_PAD(0x0054, 0x0054, 0, __NA_, 0, BUTTON_PAD_CTRL),		/* SODIMM 29 - Button 4 */
+ 	VF610_PAD_PTB0__GPIO_22			= IOMUX_PAD(0x0058, 0x0058, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTB1__GPIO_23			= IOMUX_PAD(0x005C, 0x005C, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTB4__UART1_TX		= IOMUX_PAD(0x0068, 0x0068, 2, 0x0380, 0, VF610_UART_PAD_CTRL),
+ 	VF610_PAD_PTB5__UART1_RX		= IOMUX_PAD(0x006c, 0x006c, 2, 0x037c, 0, VF610_UART_PAD_CTRL),
++	VF610_PAD_PTB5__GPIO_27			= IOMUX_PAD(0x006c, 0x006c, 0, __NA_, 0, RESETCB_PAD_CTRL),		/* SODIMM 19 - Reset CB */
+ 	VF610_PAD_PTB6__GPIO_28			= IOMUX_PAD(0x0070, 0x0070, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTB7__GPIO_29			= IOMUX_PAD(0x0074, 0x0074, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTB8__GPIO_30			= IOMUX_PAD(0x0078, 0x0078, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+@@ -68,11 +132,12 @@ enum {
+ 	VF610_PAD_PTB16__GPIO_38		= IOMUX_PAD(0x0098, 0x0098, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTB17__GPIO_39		= IOMUX_PAD(0x009c, 0x009c, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTB18__GPIO_40		= IOMUX_PAD(0x00a0, 0x00a0, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+-	VF610_PAD_PTB21__GPIO_43		= IOMUX_PAD(0x00ac, 0x00ac, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+-	VF610_PAD_PTB22__GPIO_44		= IOMUX_PAD(0x00b0, 0x00b0, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTB19__GPIO_41		= IOMUX_PAD(0x00a4, 0x00a4, 0, __NA_, 0, RESET_PAD_CTRL),		/* SODIMM 45 - Reset USB */
++	VF610_PAD_PTB21__GPIO_43		= IOMUX_PAD(0x00ac, 0x00ac, 0, __NA_, 0, BUTTON_PAD_CTRL),		/* SODIMM 73 - Button 7 */
++	VF610_PAD_PTB22__GPIO_44		= IOMUX_PAD(0x00b0, 0x00b0, 0, __NA_, 0, RESET_PAD_CTRL),		/* SODIMM 77 - Reset MB-RL78 */
+ 	VF610_PAD_PTB23__GPIO_93		= IOMUX_PAD(0x0174, 0x0174, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+-	VF610_PAD_PTB26__GPIO_96		= IOMUX_PAD(0x0180, 0x0180, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+-	VF610_PAD_PTB28__GPIO_98		= IOMUX_PAD(0x0188, 0x0188, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTB26__GPIO_96		= IOMUX_PAD(0x0180, 0x0180, 0, __NA_, 0, WDOG_EN_PAD_CTRL),		/* SODIMM 105 - WDOG.WDI */
++	VF610_PAD_PTB28__GPIO_98		= IOMUX_PAD(0x0188, 0x0188, 0, __NA_, 0, BUTTON_PAD_CTRL),		/* SODIMM 93 - Button 8 */
+ 	VF610_PAD_PTC1__GPIO_46			= IOMUX_PAD(0x00b8, 0x00b8, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTC1__RMII0_MDIO		= IOMUX_PAD(0x00b8, 0x00b8, 1, __NA_, 0, VF610_ENET_PAD_CTRL),
+ 	VF610_PAD_PTC0__GPIO_45			= IOMUX_PAD(0x00b4, 0x00b4, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+@@ -121,7 +186,7 @@ enum {
+ 	VF610_PAD_PTD30__NF_IO14		= IOMUX_PAD(0x0100, 0x0100, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+ 	VF610_PAD_PTD30__GPIO_64		= IOMUX_PAD(0x0100, 0x0100, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTD29__NF_IO13		= IOMUX_PAD(0x0104, 0x0104, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+-	VF610_PAD_PTD29__GPIO_65		= IOMUX_PAD(0x0104, 0x0104, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTD29__GPIO_65		= IOMUX_PAD(0x0104, 0x0104, 0, __NA_, 0, WDOG_WDI_PAD_CTRL),		/* SODIMM 99 - WDOG.WDI */
+ 	VF610_PAD_PTD28__NF_IO12		= IOMUX_PAD(0x0108, 0x0108, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+ 	VF610_PAD_PTD28__GPIO_66		= IOMUX_PAD(0x0108, 0x0108, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTD27__NF_IO11		= IOMUX_PAD(0x010c, 0x010c, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+@@ -131,7 +196,7 @@ enum {
+ 	VF610_PAD_PTD25__NF_IO9			= IOMUX_PAD(0x0114, 0x0114, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+ 	VF610_PAD_PTD25__GPIO_69		= IOMUX_PAD(0x0114, 0x0114, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+ 	VF610_PAD_PTD24__NF_IO8			= IOMUX_PAD(0x0118, 0x0118, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+-	VF610_PAD_PTD24__GPIO_70		= IOMUX_PAD(0x0118, 0x0118, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTD24__GPIO_70		= IOMUX_PAD(0x0118, 0x0118, 0, __NA_, 0, BUTTON_PAD_CTRL),		/* SODIMM 186 - Button 1 */
+ 	VF610_PAD_PTD23__NF_IO7			= IOMUX_PAD(0x011c, 0x011c, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+ 	VF610_PAD_PTD0__QSPI0_A_QSCK		= IOMUX_PAD(0x013c, 0x013c, 1, __NA_, 0, VF610_QSPI_PAD_CTRL),
+ 	VF610_PAD_PTD1__QSPI0_A_CS0		= IOMUX_PAD(0x0140, 0x0140, 1, __NA_, 0, VF610_QSPI_PAD_CTRL),
+@@ -143,14 +208,14 @@ enum {
+ 	VF610_PAD_PTD7__QSPI0_B_QSCK		= IOMUX_PAD(0x0158, 0x0158, 1, __NA_, 0, VF610_QSPI_PAD_CTRL),
+ 	VF610_PAD_PTD8__QSPI0_B_CS0		= IOMUX_PAD(0x015c, 0x015c, 1, __NA_, 0, VF610_QSPI_PAD_CTRL),
+ 	VF610_PAD_PTD9__QSPI0_B_DATA3		= IOMUX_PAD(0x0160, 0x0160, 1, __NA_, 0, VF610_QSPI_PAD_CTRL),
+-	VF610_PAD_PTD9__GPIO_88			= IOMUX_PAD(0x0160, 0x0160, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTD9__GPIO_88			= IOMUX_PAD(0x0160, 0x0160, 0, __NA_, 0, RESETRF_PAD_CTRL),		/* SODIMM 133 - Reset RF */
+ 	VF610_PAD_PTD10__QSPI0_B_DATA2		= IOMUX_PAD(0x0164, 0x0164, 1, __NA_, 0, VF610_QSPI_PAD_CTRL),
+-	VF610_PAD_PTD10__GPIO_89		= IOMUX_PAD(0x0164, 0x0164, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTD10__GPIO_89		= IOMUX_PAD(0x0164, 0x0164, 0, __NA_, 0, RF_WLAN_EN_PAD_CTRL),		/* SODIMM 135 - WLAN Enable */
+ 	VF610_PAD_PTD11__QSPI0_B_DATA1		= IOMUX_PAD(0x0168, 0x0168, 1, __NA_, 0, VF610_QSPI_PAD_CTRL),
+-	VF610_PAD_PTD11__GPIO_90		= IOMUX_PAD(0x0168, 0x0168, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTD11__GPIO_90		= IOMUX_PAD(0x0168, 0x0168, 0, __NA_, 0, BUTTON_PAD_CTRL),		/* SODIMM 188 - Button 2 */
+ 	VF610_PAD_PTD12__QSPI0_B_DATA0		= IOMUX_PAD(0x016c, 0x016c, 1, __NA_, 0, VF610_QSPI_PAD_CTRL),
+-	VF610_PAD_PTD12__GPIO_91		= IOMUX_PAD(0x016c, 0x016c, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
+-	VF610_PAD_PTD13__GPIO_92		= IOMUX_PAD(0x0170, 0x0170, 0, __NA_, 0, VF610_GPIO_PAD_CTRL),
++	VF610_PAD_PTD12__GPIO_91		= IOMUX_PAD(0x016c, 0x016c, 0, __NA_, 0, RESET_PAD_CTRL),		/* SODIMM 75 - Reset Ethernet */
++	VF610_PAD_PTD13__GPIO_92		= IOMUX_PAD(0x0170, 0x0170, 0, __NA_, 0, LED_PAD_CTRL),			/* SODIMM 92 - Led USB */
+ 	VF610_PAD_PTD22__NF_IO6			= IOMUX_PAD(0x0120, 0x0120, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+ 	VF610_PAD_PTD21__NF_IO5			= IOMUX_PAD(0x0124, 0x0124, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+ 	VF610_PAD_PTD20__NF_IO4			= IOMUX_PAD(0x0128, 0x0128, 2, __NA_, 0, VF610_NFC_IO_PAD_CTRL),
+@@ -172,31 +237,56 @@ enum {
+ 	VF610_PAD_PTE0__DCU0_HSYNC		= IOMUX_PAD(0x01a4, 0x01a4, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
+ 	VF610_PAD_PTE1__DCU0_VSYNC		= IOMUX_PAD(0x01a8, 0x01a8, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
+ 	VF610_PAD_PTE2__DCU0_PCLK		= IOMUX_PAD(0x01ac, 0x01ac, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE2__GPIO_107		= IOMUX_PAD(0x01ac, 0x01ac, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 56 - IRQ 13 */
+ 	VF610_PAD_PTE4__DCU0_DE			= IOMUX_PAD(0x01b4, 0x01b4, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE4__GPIO_109		= IOMUX_PAD(0x01b4, 0x01b4, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 44 - IRQ 19 */
+ 	VF610_PAD_PTE5__DCU0_R0			= IOMUX_PAD(0x01b8, 0x01b8, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE5__GPIO_110		= IOMUX_PAD(0x01b8, 0x01b8, 0, __NA_, 0, LED_PAD_CTRL),			/* SODIMM 144 - Led WiFi */
+ 	VF610_PAD_PTE6__DCU0_R1			= IOMUX_PAD(0x01bc, 0x01bc, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE6__GPIO_111		= IOMUX_PAD(0x01bc, 0x01bc, 0, __NA_, 0, LED_PAD_CTRL),			/* SODIMM 146 - Led BT */
+ 	VF610_PAD_PTE7__DCU0_R2			= IOMUX_PAD(0x01c0, 0x01c0, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE7__GPIO_112		= IOMUX_PAD(0x01c0, 0x01c0, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 52 - IRQ 15 */
+ 	VF610_PAD_PTE8__DCU0_R3			= IOMUX_PAD(0x01c4, 0x01c4, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE8__GPIO_113		= IOMUX_PAD(0x01c4, 0x01c4, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 54 - IRQ 14 */
+ 	VF610_PAD_PTE9__DCU0_R4			= IOMUX_PAD(0x01c8, 0x01c8, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE9__GPIO_114		= IOMUX_PAD(0x01c8, 0x01c8, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 66 - IRQ 8 */
+ 	VF610_PAD_PTE10__DCU0_R5		= IOMUX_PAD(0x01cc, 0x01cc, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE10__GPIO_115		= IOMUX_PAD(0x01cc, 0x01cc, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 64 - IRQ 9 */
+ 	VF610_PAD_PTE11__DCU0_R6		= IOMUX_PAD(0x01d0, 0x01d0, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE11__GPIO_116		= IOMUX_PAD(0x01d0, 0x01d0, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 57 - IRQ 1 */
+ 	VF610_PAD_PTE12__DCU0_R7		= IOMUX_PAD(0x01d4, 0x01d4, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
+ 	VF610_PAD_PTE13__DCU0_G0		= IOMUX_PAD(0x01d8, 0x01d8, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE13__GPIO_118		= IOMUX_PAD(0x01d8, 0x01d8, 0, __NA_, 0, LED_PAD_CTRL),			/* SODIMM 140 - Led Strength 3 */
+ 	VF610_PAD_PTE14__DCU0_G1		= IOMUX_PAD(0x01dc, 0x01dc, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE14__GPIO_119		= IOMUX_PAD(0x01dc, 0x01dc, 0, __NA_, 0, LED_PAD_CTRL),			/* SODIMM 142 - Led Strength 4 */
+ 	VF610_PAD_PTE15__DCU0_G2		= IOMUX_PAD(0x01e0, 0x01e0, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE15__GPIO_120		= IOMUX_PAD(0x01e0, 0x01e0, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 80 - IRQ 2 */
+ 	VF610_PAD_PTE16__DCU0_G3		= IOMUX_PAD(0x01e4, 0x01e4, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE16__GPIO_121		= IOMUX_PAD(0x01e4, 0x01e4, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 46 - IRQ 18 */
+ 	VF610_PAD_PTE17__DCU0_G4		= IOMUX_PAD(0x01e8, 0x01e8, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE17__GPIO_122		= IOMUX_PAD(0x01e8, 0x01e8, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 62 - IRQ 10 */
+ 	VF610_PAD_PTE18__DCU0_G5		= IOMUX_PAD(0x01ec, 0x01ec, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE18__GPIO_123		= IOMUX_PAD(0x01ec, 0x01ec, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 48 - IRQ 17 */
+ 	VF610_PAD_PTE19__DCU0_G6		= IOMUX_PAD(0x01f0, 0x01f0, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE19__GPIO_124		= IOMUX_PAD(0x01f0, 0x01f0, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 74 - IRQ 5 */
+ 	VF610_PAD_PTE20__DCU0_G7		= IOMUX_PAD(0x01f4, 0x01f4, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE20__GPIO_125		= IOMUX_PAD(0x01f4, 0x01f4, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 50 - IRQ 16 */
+ 	VF610_PAD_PTE21__DCU0_B0		= IOMUX_PAD(0x01f8, 0x01f8, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE21__GPIO_126		= IOMUX_PAD(0x01f8, 0x01f8, 0, __NA_, 0, LED_PAD_CTRL),			/* SODIMM 136 - Led Strength 1 */
+ 	VF610_PAD_PTE22__DCU0_B1		= IOMUX_PAD(0x01fc, 0x01fc, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE22__GPIO_127		= IOMUX_PAD(0x01fc, 0x01fc, 0, __NA_, 0, LED_PAD_CTRL),			/* SODIMM 138 - Led Strength 2 */
+ 	VF610_PAD_PTE23__DCU0_B2		= IOMUX_PAD(0x0200, 0x0200, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE23__GPIO_128		= IOMUX_PAD(0x0200, 0x0200, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 76 - IRQ 4 */
+ 	VF610_PAD_PTE24__DCU0_B3		= IOMUX_PAD(0x0204, 0x0204, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE24__GPIO_129		= IOMUX_PAD(0x0204, 0x0204, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 70 - IRQ 7 */
+ 	VF610_PAD_PTE25__DCU0_B4		= IOMUX_PAD(0x0208, 0x0208, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE25__GPIO_130		= IOMUX_PAD(0x0208, 0x0208, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 60 - IRQ 11 */
+ 	VF610_PAD_PTE26__DCU0_B5		= IOMUX_PAD(0x020c, 0x020c, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE26__GPIO_131		= IOMUX_PAD(0x020c, 0x020c, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 58 - IRQ 12 */
+ 	VF610_PAD_PTE27__DCU0_B6		= IOMUX_PAD(0x0210, 0x0210, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE27__GPIO_132		= IOMUX_PAD(0x0210, 0x0210, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 78 - IRQ 3 */
+ 	VF610_PAD_PTE28__DCU0_B7		= IOMUX_PAD(0x0214, 0x0214, 1, __NA_, 0, VF610_DCU_PAD_CTRL),
++	VF610_PAD_PTE28__GPIO_133		= IOMUX_PAD(0x0214, 0x0214, 0, __NA_, 0, IRQ_PAD_CTRL),			/* SODIMM 72 - IRQ 6 */
+ 
+ 	VF610_PAD_DDR_RESETB			= IOMUX_PAD(0x021c, 0x021c, 0, __NA_, 0, VF610_DDR_PAD_CTRL),
+ 	VF610_PAD_DDR_A15__DDR_A_15		= IOMUX_PAD(0x0220, 0x0220, 0, __NA_, 0, VF610_DDR_PAD_CTRL),
+Index: git/board/toradex/colibri_vf/colibri_vf.c
+===================================================================
+--- git.orig/board/toradex/colibri_vf/colibri_vf.c
++++ git/board/toradex/colibri_vf/colibri_vf.c
+@@ -40,8 +40,38 @@ DECLARE_GLOBAL_DATA_PTR;
+ #define ENET_PAD_CTRL	(PAD_CTL_PUS_47K_UP | PAD_CTL_SPEED_HIGH | \
+ 			PAD_CTL_DSE_50ohm | PAD_CTL_OBE_IBE_ENABLE)
+ 
+-#define USB_PEN_GPIO           83
+-#define USB_CDET_GPIO		102
++#define USB_PEN_GPIO	83
++#define USB_CDET_GPIO	102
++
++/* Defines for Sea Cloud project ********************/
++/* Led signals */
++#define LED_USB_LOCAL_UI			92
++#define LED_STRENGTH1_LOCAL_UI			126
++#define LED_STRENGTH2_LOCAL_UI			127
++#define LED_STRENGTH3_LOCAL_UI			118
++#define LED_STRENGTH4_LOCAL_UI			119
++#define LED_WIFI_LOCAL_UI			110
++#define LED_BLUETOOTH_LOCAL_UI			111
++/****************************************************/
++/* Reset signals */
++#define CARRIER_BOARD_RESET_SIGNAL		27
++#define USB_HUB_RESET_SIGNAL			41
++#define MOTHER_BOARD_RL78_RESET_SIGNAL		44
++#define RF_BOARD_RESET_SIGNAL			88
++#define DUAL_ETH_RESET_SIGNAL			91
++/****************************************************/
++/* Watchdog signal */
++#define WATCHDOG_EN_SIGNAL			96
++/****************************************************/
++/* Button signals */
++#define BUTTON_1				70
++#define BUTTON_2				90
++#define BUTTON_3				10
++#define BUTTON_4				21
++#define BUTTON_5				11
++#define BUTTON_6				20
++#define BUTTON_7				43
++#define BUTTON_8				98
+ 
+ static struct ddrmc_cr_setting colibri_vf_cr_settings[] = {
+ 	/* AXI */
+@@ -160,7 +190,6 @@ static void setup_iomux_uart(void)
+ {
+ 	static const iomux_v3_cfg_t uart_pads[] = {
+ 		NEW_PAD_CTRL(VF610_PAD_PTB4__UART1_TX, UART_PAD_CTRL),
+-		NEW_PAD_CTRL(VF610_PAD_PTB5__UART1_RX, UART_PAD_CTRL),
+ 		NEW_PAD_CTRL(VF610_PAD_PTB10__UART0_TX, UART_PAD_CTRL),
+ 		NEW_PAD_CTRL(VF610_PAD_PTB11__UART0_RX, UART_PAD_CTRL),
+ 	};
+@@ -239,10 +268,6 @@ static void setup_iomux_gpio(void)
+ {
+ 	static const iomux_v3_cfg_t gpio_pads[] = {
+ 		VF610_PAD_PTA17__GPIO_7,
+-		VF610_PAD_PTA20__GPIO_10,
+-		VF610_PAD_PTA21__GPIO_11,
+-		VF610_PAD_PTA30__GPIO_20,
+-		VF610_PAD_PTA31__GPIO_21,
+ 		VF610_PAD_PTB0__GPIO_22,
+ 		VF610_PAD_PTB1__GPIO_23,
+ 		VF610_PAD_PTB6__GPIO_28,
+@@ -254,8 +279,6 @@ static void setup_iomux_gpio(void)
+ 		VF610_PAD_PTB16__GPIO_38,
+ 		VF610_PAD_PTB17__GPIO_39,
+ 		VF610_PAD_PTB18__GPIO_40,
+-		VF610_PAD_PTB21__GPIO_43,
+-		VF610_PAD_PTB22__GPIO_44,
+ 		VF610_PAD_PTC0__GPIO_45,
+ 		VF610_PAD_PTC1__GPIO_46,
+ 		VF610_PAD_PTC2__GPIO_47,
+@@ -267,25 +290,106 @@ static void setup_iomux_gpio(void)
+ 		VF610_PAD_PTC8__GPIO_53,
+ 		VF610_PAD_PTD31__GPIO_63,
+ 		VF610_PAD_PTD30__GPIO_64,
+-		VF610_PAD_PTD29__GPIO_65,
+ 		VF610_PAD_PTD28__GPIO_66,
+ 		VF610_PAD_PTD27__GPIO_67,
+ 		VF610_PAD_PTD26__GPIO_68,
+ 		VF610_PAD_PTD25__GPIO_69,
+-		VF610_PAD_PTD24__GPIO_70,
++		VF610_PAD_PTB23__GPIO_93,
++		VF610_PAD_PTC30__GPIO_103,
++	};
++
++	imx_iomux_v3_setup_multiple_pads(gpio_pads, ARRAY_SIZE(gpio_pads));
++}
++
++static void setup_iomux_leds(void)
++{
++	static const iomux_v3_cfg_t led_pads[] = {
++		VF610_PAD_PTD13__GPIO_92,
++		VF610_PAD_PTE21__GPIO_126,
++		VF610_PAD_PTE22__GPIO_127,
++		VF610_PAD_PTE13__GPIO_118,
++		VF610_PAD_PTE14__GPIO_119,
++		VF610_PAD_PTE5__GPIO_110,
++		VF610_PAD_PTE6__GPIO_111,
++	};
++
++	imx_iomux_v3_setup_multiple_pads(led_pads, ARRAY_SIZE(led_pads));
++}
++
++static void setup_iomux_resets(void)
++{
++	static const iomux_v3_cfg_t reset_pads[] = {
++		VF610_PAD_PTB5__GPIO_27,
++		VF610_PAD_PTB19__GPIO_41,
++		VF610_PAD_PTB22__GPIO_44,
+ 		VF610_PAD_PTD9__GPIO_88,
+-		VF610_PAD_PTD10__GPIO_89,
+-		VF610_PAD_PTD11__GPIO_90,
+ 		VF610_PAD_PTD12__GPIO_91,
+-		VF610_PAD_PTD13__GPIO_92,
+-		VF610_PAD_PTB23__GPIO_93,
+-		VF610_PAD_PTB26__GPIO_96,
++	};
++
++	imx_iomux_v3_setup_multiple_pads(reset_pads, ARRAY_SIZE(reset_pads));
++}
++
++static void setup_iomux_buttons(void)
++{
++	static const iomux_v3_cfg_t buttons_pads[] = {
++		VF610_PAD_PTD24__GPIO_70,
++		VF610_PAD_PTD11__GPIO_90,
++		VF610_PAD_PTA20__GPIO_10,
++		VF610_PAD_PTA31__GPIO_21,
++		VF610_PAD_PTA21__GPIO_11,
++		VF610_PAD_PTA30__GPIO_20,
++		VF610_PAD_PTB21__GPIO_43,
+ 		VF610_PAD_PTB28__GPIO_98,
+-		VF610_PAD_PTC30__GPIO_103,
++	};
++
++	imx_iomux_v3_setup_multiple_pads(buttons_pads, ARRAY_SIZE(buttons_pads));
++}
++
++static void setup_iomux_irq(void)
++{
++	static const iomux_v3_cfg_t irqs_pads[] = {
++		VF610_PAD_PTE11__GPIO_116,
++		VF610_PAD_PTE15__GPIO_120,
++		VF610_PAD_PTE27__GPIO_132,
++		VF610_PAD_PTE23__GPIO_128,
++		VF610_PAD_PTE19__GPIO_124,
++		VF610_PAD_PTE28__GPIO_133,
++		VF610_PAD_PTE24__GPIO_129,
++		VF610_PAD_PTE9__GPIO_114,
++		VF610_PAD_PTE10__GPIO_115,
++		VF610_PAD_PTE17__GPIO_122,
++		VF610_PAD_PTE25__GPIO_130,
++		VF610_PAD_PTE26__GPIO_131,
++		VF610_PAD_PTE2__GPIO_107,
++		VF610_PAD_PTE8__GPIO_113,
++		VF610_PAD_PTE7__GPIO_112,
++		VF610_PAD_PTE20__GPIO_125,
++		VF610_PAD_PTE18__GPIO_123,
++		VF610_PAD_PTE16__GPIO_121,
++		VF610_PAD_PTE4__GPIO_109,
++	};
++
++	imx_iomux_v3_setup_multiple_pads(irqs_pads, ARRAY_SIZE(irqs_pads));
++}
++
++static void setup_iomux_wdog(void)
++{
++	static const iomux_v3_cfg_t wdog_pads[] = {
++		VF610_PAD_PTB26__GPIO_96,
++		VF610_PAD_PTD29__GPIO_65,
++	};
++
++	imx_iomux_v3_setup_multiple_pads(wdog_pads, ARRAY_SIZE(wdog_pads));
++}
++
++static void setup_iomux_rf_board(void)
++{
++	static const iomux_v3_cfg_t rf_pads[] = {
++		VF610_PAD_PTD10__GPIO_89,
+ 		VF610_PAD_PTA7__GPIO_134,
+ 	};
+ 
+-	imx_iomux_v3_setup_multiple_pads(gpio_pads, ARRAY_SIZE(gpio_pads));
++	imx_iomux_v3_setup_multiple_pads(rf_pads, ARRAY_SIZE(rf_pads));
+ }
+ #endif
+ 
+@@ -297,24 +401,18 @@ static void setup_iomux_fsl_dcu(void)
+ 		VF610_PAD_PTE1__DCU0_VSYNC,
+ 		VF610_PAD_PTE2__DCU0_PCLK,
+ 		VF610_PAD_PTE4__DCU0_DE,
+-		VF610_PAD_PTE5__DCU0_R0,
+-		VF610_PAD_PTE6__DCU0_R1,
+ 		VF610_PAD_PTE7__DCU0_R2,
+ 		VF610_PAD_PTE8__DCU0_R3,
+ 		VF610_PAD_PTE9__DCU0_R4,
+ 		VF610_PAD_PTE10__DCU0_R5,
+ 		VF610_PAD_PTE11__DCU0_R6,
+ 		VF610_PAD_PTE12__DCU0_R7,
+-		VF610_PAD_PTE13__DCU0_G0,
+-		VF610_PAD_PTE14__DCU0_G1,
+ 		VF610_PAD_PTE15__DCU0_G2,
+ 		VF610_PAD_PTE16__DCU0_G3,
+ 		VF610_PAD_PTE17__DCU0_G4,
+ 		VF610_PAD_PTE18__DCU0_G5,
+ 		VF610_PAD_PTE19__DCU0_G6,
+ 		VF610_PAD_PTE20__DCU0_G7,
+-		VF610_PAD_PTE21__DCU0_B0,
+-		VF610_PAD_PTE22__DCU0_B1,
+ 		VF610_PAD_PTE23__DCU0_B2,
+ 		VF610_PAD_PTE24__DCU0_B3,
+ 		VF610_PAD_PTE25__DCU0_B4,
+@@ -506,6 +604,13 @@ int board_early_init_f(void)
+ #endif
+ 
+ #ifdef CONFIG_VYBRID_GPIO
++	setup_iomux_leds();
++	setup_iomux_resets();
++	setup_iomux_buttons();
++	/* Disabled to keep Display during boot */
++	//setup_iomux_irq();
++	setup_iomux_wdog();
++	setup_iomux_rf_board();
+ 	setup_iomux_gpio();
+ #endif
+ 
+@@ -552,6 +657,65 @@ int board_init(void)
+ 
+ 	setbits_le32(&scsc->sosc_ctr, SCSC_SOSC_CTR_SOSC_EN);
+ 
++#ifdef CONFIG_VYBRID_GPIO
++	/* Switch on leds at startup */
++	gpio_request(LED_USB_LOCAL_UI, "usb-gpio");
++	gpio_direction_output(LED_USB_LOCAL_UI, 1);
++
++	gpio_request(LED_STRENGTH1_LOCAL_UI, "Strengh1-gpio");
++	gpio_direction_output(LED_STRENGTH1_LOCAL_UI, 1);
++	gpio_request(LED_STRENGTH2_LOCAL_UI, "Strengh2-gpio");
++	gpio_direction_output(LED_STRENGTH2_LOCAL_UI, 1);
++	gpio_request(LED_STRENGTH3_LOCAL_UI, "Strengh3-gpio");
++	gpio_direction_output(LED_STRENGTH3_LOCAL_UI, 1);
++	gpio_request(LED_STRENGTH4_LOCAL_UI, "Strengh4-gpio");
++	gpio_direction_output(LED_STRENGTH4_LOCAL_UI, 1);
++
++	gpio_request(LED_WIFI_LOCAL_UI, "wifi-gpio");
++	gpio_direction_output(LED_WIFI_LOCAL_UI, 1);
++	gpio_request(LED_BLUETOOTH_LOCAL_UI, "btle-gpio");
++	gpio_direction_output(LED_BLUETOOTH_LOCAL_UI, 1);
++
++	/* Set reset line to 1 */
++	/* USB hub reset signal */
++	gpio_request(USB_HUB_RESET_SIGNAL, "reset-usb-gpio");
++	gpio_direction_output(USB_HUB_RESET_SIGNAL, 1);
++	/* RF module reset signal */
++	gpio_request(RF_BOARD_RESET_SIGNAL, "reset-rf-gpio");
++	gpio_direction_output(RF_BOARD_RESET_SIGNAL, 1);
++	/* Dual Ethernet reset signal */
++	gpio_request(DUAL_ETH_RESET_SIGNAL, "reset-dual-eth-gpio");
++	gpio_direction_output(DUAL_ETH_RESET_SIGNAL, 1);
++	/* 1345 RL78 reset signal */
++	gpio_request(MOTHER_BOARD_RL78_RESET_SIGNAL, "reset-1345-rl78-gpio");
++	gpio_direction_output(MOTHER_BOARD_RL78_RESET_SIGNAL, 1);
++	/* Carrier board reset signal */
++	gpio_request(CARRIER_BOARD_RESET_SIGNAL, "reset-cb-gpio");
++	gpio_direction_output(CARRIER_BOARD_RESET_SIGNAL, 1);
++
++	/* Disable watchdog at startup */
++	gpio_request(WATCHDOG_EN_SIGNAL, "wdog_en");
++	gpio_direction_output(WATCHDOG_EN_SIGNAL, 1);
++
++	/* Set button as input gpio */
++	gpio_request(BUTTON_1, "button-1");
++	gpio_direction_input(BUTTON_1);
++	gpio_request(BUTTON_2, "button-2");
++	gpio_direction_input(BUTTON_2);
++	gpio_request(BUTTON_3, "button-3");
++	gpio_direction_input(BUTTON_3);
++	gpio_request(BUTTON_4, "button-4");
++	gpio_direction_input(BUTTON_4);
++	gpio_request(BUTTON_5, "button-5");
++	gpio_direction_input(BUTTON_5);
++	gpio_request(BUTTON_6, "button-6");
++	gpio_direction_input(BUTTON_6);
++	gpio_request(BUTTON_7, "button-7");
++	gpio_direction_input(BUTTON_7);
++	gpio_request(BUTTON_8, "button-8");
++	gpio_direction_input(BUTTON_8);
++#endif
++
+ #ifdef CONFIG_USB_EHCI_VF
+ 	gpio_request(USB_CDET_GPIO, "usb-cdet-gpio");
+ #endif
+Index: git/arch/arm/include/asm/imx-common/iomux-v3.h
+===================================================================
+--- git.orig/arch/arm/include/asm/imx-common/iomux-v3.h
++++ git/arch/arm/include/asm/imx-common/iomux-v3.h
+@@ -162,6 +162,8 @@ typedef u64 iomux_v3_cfg_t;
+ 
+ #define PAD_CTL_ODE		(1 << 10)
+ 
++#define PAD_CTL_HYS		(1 << 9)
++
+ #define PAD_CTL_DSE_150ohm	(1 << 6)
+ #define PAD_CTL_DSE_75ohm	(2 << 6)
+ #define PAD_CTL_DSE_50ohm	(3 << 6)
+@@ -170,6 +172,7 @@ typedef u64 iomux_v3_cfg_t;
+ #define PAD_CTL_DSE_25ohm	(6 << 6)
+ #define PAD_CTL_DSE_20ohm	(7 << 6)
+ 
++#define PAD_CTL_PUS_100K_DOWN	(0 << 4 | PAD_CTL_PUE)
+ #define PAD_CTL_PUS_47K_UP	(1 << 4 | PAD_CTL_PUE)
+ #define PAD_CTL_PUS_100K_UP	(2 << 4 | PAD_CTL_PUE)
+ #define PAD_CTL_PUS_22K_UP	(3 << 4 | PAD_CTL_PUE)

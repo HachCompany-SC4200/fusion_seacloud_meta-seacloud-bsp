@@ -7,11 +7,11 @@ Subject: [PATCH] Change prompt
  configs/colibri_vf_defconfig | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/configs/colibri_vf_defconfig b/configs/colibri_vf_defconfig
-index cf2d87a..6e747a1 100644
---- a/configs/colibri_vf_defconfig
-+++ b/configs/colibri_vf_defconfig
-@@ -8,7 +8,7 @@ CONFIG_BOOTDELAY=1
+Index: git/configs/colibri_vf_defconfig
+===================================================================
+--- git.orig/configs/colibri_vf_defconfig
++++ git/configs/colibri_vf_defconfig
+@@ -10,7 +10,7 @@ CONFIG_BOOTDELAY=1
  CONFIG_VERSION_VARIABLE=y
  # CONFIG_DISPLAY_BOARDINFO is not set
  CONFIG_HUSH_PARSER=y
@@ -20,6 +20,3 @@ index cf2d87a..6e747a1 100644
  CONFIG_CMD_BOOTZ=y
  # CONFIG_CMD_IMLS is not set
  CONFIG_CMD_ASKENV=y
--- 
-2.7.4
-

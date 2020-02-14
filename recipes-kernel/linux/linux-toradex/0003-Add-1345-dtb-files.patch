@@ -1,17 +1,17 @@
-From 74ea1be46ff68f6d15fd794e3773e4e4248b0c9d Mon Sep 17 00:00:00 2001
-From: sorlandini <sandrine.orlandini@hach.com>
-Date: Thu, 6 Jul 2017 15:04:15 +0200
+From d1a99ba53f4ef86e5a7b9103f6efa0f96b0c5e64 Mon Sep 17 00:00:00 2001
+From: Guillaume Deroire <guillaume.deroire@hach.com>
+Date: Fri, 16 Mar 2018 12:35:22 +0100
 Subject: [PATCH] Add 1345 dtb files
 
 ---
  arch/arm/boot/dts/Makefile                       |   8 +-
- arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi      | 516 +++++++++++++++++++++++
+ arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi      | 518 +++++++++++++++++++++++
  arch/arm/boot/dts/vf500-colibri-1345-v6.dts      | 477 +++++++++++++++++++++
  arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts    |  33 ++
  arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts |  53 +++
  arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts    |  28 ++
- arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts |  47 +++
- 7 files changed, 1160 insertions(+), 2 deletions(-)
+ arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts |  47 ++
+ 7 files changed, 1162 insertions(+), 2 deletions(-)
  create mode 100644 arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi
  create mode 100644 arch/arm/boot/dts/vf500-colibri-1345-v6.dts
  create mode 100644 arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts
@@ -19,10 +19,10 @@ Subject: [PATCH] Add 1345 dtb files
  create mode 100644 arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts
  create mode 100644 arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts
 
-diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
-index a573819..70cb33b 100644
---- a/arch/arm/boot/dts/Makefile
-+++ b/arch/arm/boot/dts/Makefile
+Index: kernel-source/arch/arm/boot/dts/Makefile
+===================================================================
+--- kernel-source.orig/arch/arm/boot/dts/Makefile
++++ kernel-source/arch/arm/boot/dts/Makefile
 @@ -355,7 +355,6 @@ dtb-$(CONFIG_SOC_LS1021A) += \
  	ls1021a-qds.dtb \
  	ls1021a-twr.dtb
@@ -45,12 +45,11 @@ index a573819..70cb33b 100644
  dtb-$(CONFIG_ARCH_MXS) += \
  	imx23-evk.dtb \
  	imx23-olinuxino.dtb \
-diff --git a/arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi b/arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi
-new file mode 100644
-index 0000000..501133b
+Index: kernel-source/arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi
+===================================================================
 --- /dev/null
-+++ b/arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi
-@@ -0,0 +1,516 @@
++++ kernel-source/arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi
+@@ -0,0 +1,523 @@
 +/*
 + * Copyright 2016 Hach
 + *
@@ -257,6 +256,7 @@ index 0000000..501133b
 +			// 32 gpio per controller : gpio 41 -> 1*32 + 9 -> gpio1 + 9
 +			gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
 +			default-state = "on";
++			retain-state-shutdown;
 +		};
 +
 +		ResetRF {
@@ -265,6 +265,7 @@ index 0000000..501133b
 +			// 32 gpio per controller : gpio 88 -> 2*32 + 24 -> gpio2 + 24
 +			gpios = <&gpio2 24 GPIO_ACTIVE_HIGH>;
 +			default-state = "on";
++			retain-state-shutdown;
 +		};
 +
 +		ResetEth {
@@ -273,6 +274,7 @@ index 0000000..501133b
 +			// 32 gpio per controller : gpio 91 -> 2*32 + 27 -> gpio2 + 27
 +			gpios = <&gpio2 27 GPIO_ACTIVE_HIGH>;
 +			default-state = "on";
++			retain-state-shutdown;
 +		};
 +
 +		ResetRL78 {
@@ -281,6 +283,7 @@ index 0000000..501133b
 +			// 32 gpio per controller : gpio 44 -> 1*32 + 12 -> gpio1 + 12
 +			gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
 +			default-state = "on";
++			retain-state-shutdown;
 +		};
 +
 +		ResetCB {
@@ -289,6 +292,7 @@ index 0000000..501133b
 +			// 32 gpio per controller : gpio 27 -> 0*32 + 27 -> gpio0 + 27
 +			gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
 +			default-state = "on";
++			retain-state-shutdown;
 +		};
 +	};
 +
@@ -305,6 +309,7 @@ index 0000000..501133b
 +			// 32 gpio per controller : gpio 96 -> 3*32 + 0 -> gpio3 + 0
 +			gpios = <&gpio3 0 GPIO_ACTIVE_HIGH>;
 +			default-state = "on";
++			retain-state-shutdown;
 +		};
 +
 +		WDOG_IN {
@@ -416,39 +421,39 @@ index 0000000..501133b
 +				// RF GPIOs
 +
 +				// MM_EN - SODIMM 135 - PTD10 - already OK in vf-colibri.dtsi
-+				VF610_PAD_PTD10__GPIO_89	0x22ed
++				VF610_PAD_PTD10__GPIO_89	0x067e
 +				// 3G ON/OFF - SODIMM 96 - PTA7 - already OK in vf-colibri.dtsi
-+				VF610_PAD_PTA7__GPIO_134	0x22ed
++				VF610_PAD_PTA7__GPIO_134	0x067e
 +
 +				// UART B EN - SODIMM 104 - PTD28 - already OK in vf-colibri.dtsi
 +				VF610_PAD_PTD28__GPIO_66	0x22ed
 +
 +				// RL78 IO for 1345 v6
 +				// RL78 IRQ0-19
-+				VF610_PAD_PTE15__GPIO_120	0x22ed
-+				VF610_PAD_PTE27__GPIO_132	0x22ed
-+				VF610_PAD_PTE23__GPIO_128	0x22ed
-+				VF610_PAD_PTE19__GPIO_124	0x22ed
-+				VF610_PAD_PTE28__GPIO_133	0x22ed
-+				VF610_PAD_PTE24__GPIO_129	0x22ed
-+				VF610_PAD_PTE11__GPIO_116	0x22ed
-+				VF610_PAD_PTE9__GPIO_114	0x22ed
-+				VF610_PAD_PTE10__GPIO_115	0x22ed
-+				VF610_PAD_PTE17__GPIO_122	0x22ed
-+				VF610_PAD_PTE25__GPIO_130	0x22ed
-+				VF610_PAD_PTE26__GPIO_131	0x22ed
-+				VF610_PAD_PTE2__GPIO_107	0x22ed
-+				VF610_PAD_PTE8__GPIO_113	0x22ed
-+				VF610_PAD_PTE7__GPIO_112	0x22ed
-+				VF610_PAD_PTE20__GPIO_125	0x22ed
-+				VF610_PAD_PTE18__GPIO_123	0x22ed
-+				VF610_PAD_PTE16__GPIO_121	0x22ed
-+				VF610_PAD_PTE4__GPIO_109	0x22ed
++				VF610_PAD_PTE15__GPIO_120	0x023d
++				VF610_PAD_PTE27__GPIO_132	0x023d
++				VF610_PAD_PTE23__GPIO_128	0x023d
++				VF610_PAD_PTE19__GPIO_124	0x023d
++				VF610_PAD_PTE28__GPIO_133	0x023d
++				VF610_PAD_PTE24__GPIO_129	0x023d
++				VF610_PAD_PTE11__GPIO_116	0x023d
++				VF610_PAD_PTE9__GPIO_114	0x023d
++				VF610_PAD_PTE10__GPIO_115	0x023d
++				VF610_PAD_PTE17__GPIO_122	0x023d
++				VF610_PAD_PTE25__GPIO_130	0x023d
++				VF610_PAD_PTE26__GPIO_131	0x023d
++				VF610_PAD_PTE2__GPIO_107	0x023d
++				VF610_PAD_PTE8__GPIO_113	0x023d
++				VF610_PAD_PTE7__GPIO_112	0x023d
++				VF610_PAD_PTE20__GPIO_125	0x023d
++				VF610_PAD_PTE18__GPIO_123	0x023d
++				VF610_PAD_PTE16__GPIO_121	0x023d
++				VF610_PAD_PTE4__GPIO_109	0x023d
 +
 +
 +				// Original GPIOs from vf-colibri.dtsi
 +				VF610_PAD_PTA12__GPIO_5		0x22ed
-+				VF610_PAD_PTA17__GPIO_7		0x22ed
++				VF610_PAD_PTA17__GPIO_7		0x026d
 +				VF610_PAD_PTB7__GPIO_29		0x22ed
 +				VF610_PAD_PTB12__GPIO_34	0x22ed
 +				VF610_PAD_PTB13__GPIO_35	0x22ed
@@ -459,12 +464,13 @@ index 0000000..501133b
 +				VF610_PAD_PTD31__GPIO_63	0x22ed
 +				VF610_PAD_PTD30__GPIO_64	0x22ed
 +				VF610_PAD_PTD27__GPIO_67	0x22ed
-+				VF610_PAD_PTD26__GPIO_68	0x22ed
++				VF610_PAD_PTD26__GPIO_68	0x0242
 +
 +				VF610_PAD_PTB23__GPIO_93	0x22ed
 +			>;
 +		};
 +
++		/* Keep default setting - no clock or changes */
 +		pinctrl_dspi1: dspi1grp {
 +			fsl,pins = <
 +				VF610_PAD_PTE12__DSPI1_CS3		0x33e2
@@ -481,15 +487,15 @@ index 0000000..501133b
 +				// Peripheral resets
 +
 +				// USB HUB
-+				VF610_PAD_PTB19__GPIO_41	0x22ef
++				VF610_PAD_PTB19__GPIO_41	0x066e
 +				// RF
-+				VF610_PAD_PTD9__GPIO_88		0x22ef
++				VF610_PAD_PTD9__GPIO_88		0x026e
 +				// Dual Ethernet
-+				VF610_PAD_PTD12__GPIO_91	0x22ef
++				VF610_PAD_PTD12__GPIO_91	0x066e
 +				// RL78 main board
-+				VF610_PAD_PTB22__GPIO_44	0x22ef
++				VF610_PAD_PTB22__GPIO_44	0x066e
 +				// Carrier board
-+				VF610_PAD_PTB5__GPIO_27		0x22ef
++				VF610_PAD_PTB5__GPIO_27		0x0443
 +			>;
 +		};
 +
@@ -498,19 +504,19 @@ index 0000000..501133b
 +				// 1355 Leds
 +
 +				// LED DS 1 - already OK in vf-colibri.dtsi
-+				VF610_PAD_PTD13__GPIO_92	0x22e6
++				VF610_PAD_PTD13__GPIO_92	0x0242
 +				// LED DS 2
-+				VF610_PAD_PTE21__GPIO_126	0x22e6
++				VF610_PAD_PTE21__GPIO_126	0x0242
 +				// LED DS 3
-+				VF610_PAD_PTE22__GPIO_127	0x22e6
++				VF610_PAD_PTE22__GPIO_127	0x0242
 +				// LED DS 4
-+				VF610_PAD_PTE13__GPIO_118	0x22e6
++				VF610_PAD_PTE13__GPIO_118	0x0242
 +				// LED DS 5
-+				VF610_PAD_PTE14__GPIO_119	0x22e6
++				VF610_PAD_PTE14__GPIO_119	0x0242
 +				// LED DS 6
-+				VF610_PAD_PTE5__GPIO_110	0x22e6
++				VF610_PAD_PTE5__GPIO_110	0x0242
 +				// LED DS 7
-+				VF610_PAD_PTE6__GPIO_111	0x22e6
++				VF610_PAD_PTE6__GPIO_111	0x0242
 +			>;
 +		};
 +
@@ -520,21 +526,21 @@ index 0000000..501133b
 +				// Buttons
 +
 +				// IN_BUTTON_1 - SODIMM186 - PTD24
-+				VF610_PAD_PTD24__GPIO_70	0x22cd
++				VF610_PAD_PTD24__GPIO_70	0x020d
 +				// IN_BUTTON_2 - SODIMM188 - PTD11
-+				VF610_PAD_PTD11__GPIO_90	0x22cd
++				VF610_PAD_PTD11__GPIO_90	0x020d
 +				// IN_BUTTON_3 - SODIMM23 - PTA20
-+				VF610_PAD_PTA20__GPIO_10	0x22cd
++				VF610_PAD_PTA20__GPIO_10	0x020d
 +				// IN_BUTTON_4 - SODIMM29 - PTA31
-+				VF610_PAD_PTA31__GPIO_21	0x22cd
++				VF610_PAD_PTA31__GPIO_21	0x020d
 +				// IN_BUTTON_5 - SODIMM31 - PTA21
-+				VF610_PAD_PTA21__GPIO_11	0x22cd
++				VF610_PAD_PTA21__GPIO_11	0x020d
 +				// IN_BUTTON_6 - SODIMM37 - PTA30
-+				VF610_PAD_PTA30__GPIO_20	0x22cd
++				VF610_PAD_PTA30__GPIO_20	0x020d
 +				// IN_BUTTON_7 - SODIMM73 - PTB21
-+				VF610_PAD_PTB21__GPIO_43	0x22cd
++				VF610_PAD_PTB21__GPIO_43	0x020d
 +				// IN_BUTTON_8 - SODIMM93 - PTB28
-+				VF610_PAD_PTB28__GPIO_98	0x22cd
++				VF610_PAD_PTB28__GPIO_98	0x020d
 +			>;
 +		};
 +
@@ -559,19 +565,18 @@ index 0000000..501133b
 +		pinctrl_wdog: wdoggrp {
 +			fsl,pins = <
 +				// No Pull up
-+				VF610_PAD_PTB26__GPIO_96		0x00C6
-+				VF610_PAD_PTD29__GPIO_65		0x00C6
++				VF610_PAD_PTB26__GPIO_96		0x0242
++				VF610_PAD_PTD29__GPIO_65		0x0242
 +			>;
 +		};
 +
 +
 +	};
 +};
-diff --git a/arch/arm/boot/dts/vf500-colibri-1345-v6.dts b/arch/arm/boot/dts/vf500-colibri-1345-v6.dts
-new file mode 100644
-index 0000000..d3b8bb6
+Index: kernel-source/arch/arm/boot/dts/vf500-colibri-1345-v6.dts
+===================================================================
 --- /dev/null
-+++ b/arch/arm/boot/dts/vf500-colibri-1345-v6.dts
++++ kernel-source/arch/arm/boot/dts/vf500-colibri-1345-v6.dts
 @@ -0,0 +1,477 @@
 +/*
 + * Copyright 2016 Hach
@@ -1050,11 +1055,10 @@ index 0000000..d3b8bb6
 +
 +	};
 +};
-diff --git a/arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts b/arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts
-new file mode 100644
-index 0000000..0e3198e
+Index: kernel-source/arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts
+===================================================================
 --- /dev/null
-+++ b/arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts
++++ kernel-source/arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts
 @@ -0,0 +1,33 @@
 +/*
 + * Copyright 2016 Hach
@@ -1089,11 +1093,10 @@ index 0000000..0e3198e
 +&touchscreen {
 +	status = "disabled";
 +};
-diff --git a/arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts b/arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts
-new file mode 100644
-index 0000000..3951431
+Index: kernel-source/arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts
+===================================================================
 --- /dev/null
-+++ b/arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts
++++ kernel-source/arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts
 @@ -0,0 +1,53 @@
 +/*
 + * Copyright 2016 Hach
@@ -1148,11 +1151,10 @@ index 0000000..3951431
 +&esw {
 +       status = "okay";
 +};
-diff --git a/arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts b/arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts
-new file mode 100644
-index 0000000..c192a47
+Index: kernel-source/arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts
+===================================================================
 --- /dev/null
-+++ b/arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts
++++ kernel-source/arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts
 @@ -0,0 +1,28 @@
 +/*
 + * Copyright 2016 Hach
@@ -1182,11 +1184,10 @@ index 0000000..c192a47
 +	model = "Toradex Colibri VF61 on HACH XMF1345 B Board";
 +	compatible = "toradex,vf610-colibri_vf61-on-eval", "toradex,vf610-colibri_vf61", "fsl,vf610";
 +};
-diff --git a/arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts b/arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts
-new file mode 100644
-index 0000000..be59f9a
+Index: kernel-source/arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts
+===================================================================
 --- /dev/null
-+++ b/arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts
++++ kernel-source/arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts
 @@ -0,0 +1,47 @@
 +/*
 + * Copyright 2016 Hach
@@ -1235,6 +1236,3 @@ index 0000000..be59f9a
 +&esw {
 +       status = "okay";
 +};
--- 
-2.7.4
-
