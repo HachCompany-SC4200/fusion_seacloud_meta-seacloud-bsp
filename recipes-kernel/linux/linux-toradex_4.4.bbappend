@@ -1,5 +1,3 @@
-SRCBRANCH = "toradex_vf_4.4-next"
-
 FILESEXTRAPATHS_prepend_colibri-vf-1345 := "${THISDIR}/${PN}:"
 
 SRC_URI_append_colibri-vf-1345 = "\
@@ -11,5 +9,17 @@ SRC_URI_append_colibri-vf-1345 = "\
 	file://0006-Add-RTL8812AU-preparations.patch \
 	file://0007-Add-RTL8812AU-driver.patch \
 "
+
+# Replace original Toradex git URL
+SRC_URI_remove = "git://git.toradex.com/linux-toradex.git;protocol=git;branch=${SRCBRANCH}"
+SRC_URI_prepend = "git://github.com/HachCompany-SC4200/fusion_seacloud_linux.git;branch=${SRCBRANCH} "
+
+# To be used for master
+SRCREV = "fc21963e9291dd6d8e7fa2f53f553ebe0d3be0a9"
+SRCBRANCH="github_publication_SC4200"
+
+# To be use during development to follow automatically new commits
+#SRCREV = "${AUTOREV}"
+#SRCBRANCH = "feature/FCON2-875-apply-agreed-gpio-settings-based"
 
 

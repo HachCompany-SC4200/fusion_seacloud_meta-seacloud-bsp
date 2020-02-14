@@ -10,3 +10,16 @@ do_install_append_colibri-vf-1345() {
         install -m 644 ${WORKDIR}/fw_env.config ${D}${sysconfdir}/fw_env.config
         install -m 644 ${WORKDIR}/fw_env_mtd.config ${D}${sysconfdir}/fw_env_mtd.config
 }
+
+# Replace original Toradex git URL
+SRC_URI_remove = "git://git.toradex.com/u-boot-toradex.git;protocol=git;branch=${SRCBRANCH}"
+SRC_URI_prepend = "git://github.com/HachCompany-SC4200/fusion_seacloud_u-boot.git;branch=${SRCBRANCH} "
+
+# To be used for master
+SRCREV = "fe9f69473c8d8a93e6d4fde6a9f1d21fa70c5d48"
+SRCBRANCH="github_publication_SC4200"
+
+# To be use during development to follow automatically new commits
+#SRCREV = "${AUTOREV}"
+#SRCBRANCH = "your working branch"
+
