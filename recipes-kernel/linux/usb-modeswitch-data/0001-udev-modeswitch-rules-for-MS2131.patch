@@ -1,0 +1,8 @@
+*** usb-modeswitch-data-20140529/40-usb_modeswitch.rules	2018-04-26 11:15:56.645670562 +0200
+--- usb-modeswitch-data-20140529/40-usb_modeswitch.rules	2018-05-07 17:02:23.702108139 +0200
+*************** ATTR{idVendor}=="8888", ATTR{idProduct}=
+*** 877 ****
+--- 878,880 ----
++ # Hach custom Huawei devices (for MS2131)
++ ACTION=="add", SUBSYSTEM=="usb", ATTRS{idVendor}=="12d1", ATTRS{idProduct}=="14fe", RUN+="/usr/sbin/usb_modeswitch -v 12d1 -p 14fe -J"
++ 
