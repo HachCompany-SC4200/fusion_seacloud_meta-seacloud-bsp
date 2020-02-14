@@ -71,7 +71,7 @@ Index: git/include/configs/colibri_vf.h
  	"defargs=\0" \
  	"dfu_alt_info=" DFU_ALT_NAND_INFO "\0" \
 -	"fdt_board=eval-v3\0" \
-+	"fdt_board=XMF1345-B_L2\0" \
++	"fdt_board=XMF1345-B\0" \
  	"fdt_fixup=;\0" \
 +	"bootable_partition=0\0" \
 +	"updateinprogress=0\0" \
