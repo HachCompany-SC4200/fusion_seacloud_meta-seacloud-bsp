@@ -1,0 +1,1240 @@
+From 74ea1be46ff68f6d15fd794e3773e4e4248b0c9d Mon Sep 17 00:00:00 2001
+From: sorlandini <sandrine.orlandini@hach.com>
+Date: Thu, 6 Jul 2017 15:04:15 +0200
+Subject: [PATCH] Add 1345 dtb files
+
+---
+ arch/arm/boot/dts/Makefile                       |   8 +-
+ arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi      | 516 +++++++++++++++++++++++
+ arch/arm/boot/dts/vf500-colibri-1345-v6.dts      | 477 +++++++++++++++++++++
+ arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts    |  33 ++
+ arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts |  53 +++
+ arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts    |  28 ++
+ arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts |  47 +++
+ 7 files changed, 1160 insertions(+), 2 deletions(-)
+ create mode 100644 arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi
+ create mode 100644 arch/arm/boot/dts/vf500-colibri-1345-v6.dts
+ create mode 100644 arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts
+ create mode 100644 arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts
+ create mode 100644 arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts
+ create mode 100644 arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts
+
+diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
+index a573819..70cb33b 100644
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -355,7 +355,6 @@ dtb-$(CONFIG_SOC_LS1021A) += \
+ 	ls1021a-qds.dtb \
+ 	ls1021a-twr.dtb
+ dtb-$(CONFIG_SOC_VF610) += \
+-	vf500-colibri-eval-v3.dtb \
+ 	vf610-colibri-eval-v3.dtb \
+ 	vf500-colibri-aster.dtb \
+ 	vf610-colibri-aster.dtb \
+@@ -363,7 +362,12 @@ dtb-$(CONFIG_SOC_VF610) += \
+ 	vf500-colibri-dual-eth.dtb \
+ 	vf610-colibri-dual-eth.dtb \
+ 	vf610-cosmic.dtb \
+-	vf610-twr.dtb
++	vf610-twr.dtb \
++	vf610-twr.dtb \
++	vf500-colibri-eval-v3.dtb \
++	vf500-colibri-1345-v6.dtb \
++	vf500-colibri-XMF1345-B.dtb \
++	vf500-colibri-XMF1345-B_L2.dtb
+ dtb-$(CONFIG_ARCH_MXS) += \
+ 	imx23-evk.dtb \
+ 	imx23-olinuxino.dtb \
+diff --git a/arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi b/arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi
+new file mode 100644
+index 0000000..501133b
+--- /dev/null
++++ b/arch/arm/boot/dts/vf-colibri-XMF1345-B.dtsi
+@@ -0,0 +1,516 @@
++/*
++ * Copyright 2016 Hach
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++/*
++ * !! Help !!
++ *
++ * To list all GPIO with the node that use them and the group
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinmux-pins
++ *
++ * To list all GPIO with the current port configuration
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinconf-pins
++ *
++ */
++
++#include "vf-colibri-eval-v3.dtsi"
++
++/ {
++	// Delete alias to remove uart1
++	aliases {
++               /delete-property/serial1;
++        };
++
++	// Disable gpio-keys to release GPIO 41
++	/delete-node/gpio-keys;
++
++	// gpio-keys driver
++	gpio-keys_front {
++		compatible = "gpio-keys";
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_gpio_keys>;
++		Button1 {
++			label = "Button1";
++
++			// SODIMM 186 / PTD24 / GPIO 70
++			// 32 gpio per controller : gpio 70 -> 2*32 + 6 -> gpio2 + 6
++			gpios = <&gpio2 6 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_1>;
++			debounce-interval = <1>;
++			};
++
++		Button2 {
++			label = "Button2";
++
++			// SODIMM 188 / PTD11 / GPIO 90
++			// 32 gpio per controller : gpio 90 -> 2*32 + 26 -> gpio2 + 26
++			gpios = <&gpio2 26 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_2>;
++			debounce-interval = <1>;
++			};
++
++		Button3 {
++			label = "Button3";
++
++			// SODIMM 23 / PTA20 / GPIO 10
++			// 32 gpio per controller : gpio 10 -> 0*32 + 10 -> gpio0 + 10
++			gpios = <&gpio0 10 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_3>;
++			debounce-interval = <1>;
++			};
++
++		Button4 {
++			label = "Button4";
++
++			// SODIMM 29 / PTA31 / GPIO 21
++			// 32 gpio per controller : gpio 21 -> 0*32 + 21 -> gpio0 + 21
++			gpios = <&gpio0 21 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_4>;
++			debounce-interval = <1>;
++			};
++
++		Button5 {
++			label = "Button5";
++
++			// SODIMM 31 / PTA21 / GPIO 11
++			// 32 gpio per controller : gpio 11 -> 0*32 + 11 -> gpio0 + 11
++			gpios = <&gpio0 11 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_5>;
++			debounce-interval = <1>;
++			};
++
++		Button6 {
++			label = "Button6";
++
++			// SODIMM 37 / PTA30 / GPIO 20
++			// 32 gpio per controller : gpio 20 -> 0*32 + 20 -> gpio0 + 20
++			gpios = <&gpio0 20 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_6>;
++			debounce-interval = <1>;
++			};
++
++		Button7 {
++			label = "Button7";
++
++			// SODIMM 73 / PTB21 / GPIO 43
++			// 32 gpio per controller : gpio 43 -> 1*32 + 11 -> gpio1 + 11
++			gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_7>;
++			debounce-interval = <1>;
++			};
++
++		Button8 {
++			label = "Button8";
++
++			// SODIMM 93 / PTB28 / GPIO 98
++			// 32 gpio per controller : gpio 98 -> 3*32 + 2 -> gpio3 + 2
++			gpios = <&gpio3 2 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_8>;
++			debounce-interval = <1>;
++			};
++	};
++
++	/* GPIO Leds driver disabled for front panel leds because they are managed with gpio sysfs
++
++	// gpio-leds driver
++	gpio-leds {
++		compatible = "gpio-leds";
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_gpio_leds>;
++		status = "okay";
++
++
++		LedUSB {
++			label = "USB";
++			// SODIMM 100 / PTD13 / GPIO 92
++			// 32 gpio per controller : gpio 92 -> 2*32 + 28 -> gpio2 + 28
++			gpios = <&gpio2 28 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++			linux,default-trigger = "none";
++		};
++
++		LedGSM0 {
++			label = "GSM_Level_0";
++			// SODIMM 136 / PTE21 / GPIO 126
++			// 32 gpio per controller : gpio 126 -> 3*32 + 30 -> gpio3 + 30
++			gpios = <&gpio3 30 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++			linux,default-trigger = "none";
++		};
++
++		LedGSM1 {
++			label = "GSM_Level_1";
++			// SODIMM 138 / PTE22 / GPIO 127
++			// 32 gpio per controller : gpio 127 -> 3*32 + 30 -> gpio3 + 31
++			gpios = <&gpio3 31 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++			linux,default-trigger = "none";
++		};
++
++		LedGSM2 {
++			label = "GSM_Level_2";
++			// SODIMM 140 / PTE13 / GPIO 118
++			// 32 gpio per controller : gpio 118 -> 3*32 + 22 -> gpio3 + 22
++			gpios = <&gpio3 22 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++			linux,default-trigger = "none";
++		};
++
++		LedGSM3 {
++			label = "GSM_Level_3";
++			// SODIMM 142 / PTE14 / GPIO 119
++			// 32 gpio per controller : gpio 119 -> 3*32 + 23 -> gpio3 + 23
++			gpios = <&gpio3 23 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++			linux,default-trigger = "none";
++		};
++
++		LedBT {
++			label = "Bluetooth";
++			// SODIMM 144 / PTE5 / GPIO 110
++			// 32 gpio per controller : gpio 110 -> 3*32 + 14 -> gpio3 + 14
++			gpios = <&gpio3 14 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++			linux,default-trigger = "none";
++		};
++
++		LedWifi {
++			label = "Wifi";
++			// SODIMM 146 / PTE6 / GPIO 111
++			// 32 gpio per controller : gpio 111 -> 3*32 + 15 -> gpio3 + 15
++			gpios = <&gpio3 15 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++			linux,default-trigger = "none";
++		};
++
++	};
++	*/
++
++	// Reset management
++	gpio-reset {
++		compatible = "gpio-leds";
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_gpio_reset>;
++		status = "okay";
++
++		ResetUSB {
++			label = "Reset_USB_HUB";
++			// SODIMM 45 / PTB19 / GPIO 41
++			// 32 gpio per controller : gpio 41 -> 1*32 + 9 -> gpio1 + 9
++			gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		ResetRF {
++			label = "Reset_RF";
++			// SODIMM 133 / PTD9 / GPIO 88
++			// 32 gpio per controller : gpio 88 -> 2*32 + 24 -> gpio2 + 24
++			gpios = <&gpio2 24 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		ResetEth {
++			label = "Reset_Eth";
++			// SODIMM 75 / PTD12 / GPIO 91
++			// 32 gpio per controller : gpio 91 -> 2*32 + 27 -> gpio2 + 27
++			gpios = <&gpio2 27 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		ResetRL78 {
++			label = "Reset_RL78";
++			// SODIMM 77 / PTB22 / GPIO 44
++			// 32 gpio per controller : gpio 44 -> 1*32 + 12 -> gpio1 + 12
++			gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		ResetCB {
++			label = "Reset_CB";
++			// SODIMM 19 / PTB5 / GPIO 27
++			// 32 gpio per controller : gpio 27 -> 0*32 + 27 -> gpio0 + 27
++			gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++	};
++
++	// Watch dog management
++	gpio-wdog {
++		compatible = "gpio-leds";
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_wdog>;
++		status = "okay";
++
++		WDOG_EN {
++			label = "Watchdog_Enable";
++			// SODIMM 105 / PTB26 / GPIO 96
++			// 32 gpio per controller : gpio 96 -> 3*32 + 0 -> gpio3 + 0
++			gpios = <&gpio3 0 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		WDOG_IN {
++			label = "Watchdog_Input";
++			// SODIMM 99 / PTD29 / GPIO 65
++			// 32 gpio per controller : gpio 65 -> 2*32 + 1 -> gpio2 + 1
++			gpios = <&gpio2 1 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++	};
++
++};
++
++&aips0 {
++	// Delete LCD node  to free GPIO for leds
++	/delete-node/dcu@40058000;
++
++	// Disabled to release the GPIO 27 / Sodimm 19 use to drive the Carrier board reset
++	/delete-node/serial@40028000;
++};
++
++// Disable Backlight
++&bl {
++	status = "disabled";
++};
++
++&dspi1 {
++	status = "okay";
++
++	// Remove unused drivers to release GPIO
++	/delete-node/can@0;
++	/delete-node/spidev@0;
++
++	// reg is used to select the chip select used in the pinctrl_dspi1 group.
++
++	spidev10: dspi1@0 {
++		// Usage of toradex,evalspi as driver name added by toradex for this usage
++		status = "okay";
++		compatible = "toradex,evalspi";
++		reg = <0>;
++		spi-max-frequency = <50000000>;
++	};
++
++	spidev12: dspi1@2 {
++		// Usage of toradex,evalspi as driver name added by toradex for this usage
++		status = "okay";
++		compatible = "toradex,evalspi";
++		reg = <2>;
++		spi-max-frequency = <50000000>;
++	};
++
++	spidev13: dspi1@3 {
++		// Usage of toradex,evalspi as driver name added by toradex for this usage
++		status = "okay";
++		compatible = "toradex,evalspi";
++		reg = <3>;
++		spi-max-frequency = <50000000>;
++	};
++
++};
++
++
++/*
++// To force i2c bus at 100kHz
++&i2c0 {
++	clock-frequency = <100000>;
++};
++*/
++
++// Disable pwm0 and pwm1 for fec0 ethernet port
++&pwm0 {
++	status = "disabled";
++};
++
++&pwm1 {
++	status = "disabled";
++};
++
++// Enable second ethernet port
++&fec0 {
++	phy-mode = "rmii";
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_fec0>;
++	status = "okay";
++};
++
++&esw {
++       pinctrl-names = "default";
++       pinctrl-0 = <&pinctrl_fec0 &pinctrl_fec1>;
++       status = "disabled";
++};
++
++
++&iomuxc {
++	vf610-colibri {
++
++		// Free GPIO for buttons
++		/delete-node/can_int;
++		// Free GPIO for reset
++		/delete-node/gpiokeys;
++		// Free GPIO for leds (if needed)
++		/delete-node/dcu0grp_1;
++		// Free GPIO for reset
++		/delete-node/uart1grp;
++
++		pinctrl_additionalgpio: additionalgpios {
++			fsl,pins = <
++
++				// RF GPIOs
++
++				// MM_EN - SODIMM 135 - PTD10 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD10__GPIO_89	0x22ed
++				// 3G ON/OFF - SODIMM 96 - PTA7 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTA7__GPIO_134	0x22ed
++
++				// UART B EN - SODIMM 104 - PTD28 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD28__GPIO_66	0x22ed
++
++				// RL78 IO for 1345 v6
++				// RL78 IRQ0-19
++				VF610_PAD_PTE15__GPIO_120	0x22ed
++				VF610_PAD_PTE27__GPIO_132	0x22ed
++				VF610_PAD_PTE23__GPIO_128	0x22ed
++				VF610_PAD_PTE19__GPIO_124	0x22ed
++				VF610_PAD_PTE28__GPIO_133	0x22ed
++				VF610_PAD_PTE24__GPIO_129	0x22ed
++				VF610_PAD_PTE11__GPIO_116	0x22ed
++				VF610_PAD_PTE9__GPIO_114	0x22ed
++				VF610_PAD_PTE10__GPIO_115	0x22ed
++				VF610_PAD_PTE17__GPIO_122	0x22ed
++				VF610_PAD_PTE25__GPIO_130	0x22ed
++				VF610_PAD_PTE26__GPIO_131	0x22ed
++				VF610_PAD_PTE2__GPIO_107	0x22ed
++				VF610_PAD_PTE8__GPIO_113	0x22ed
++				VF610_PAD_PTE7__GPIO_112	0x22ed
++				VF610_PAD_PTE20__GPIO_125	0x22ed
++				VF610_PAD_PTE18__GPIO_123	0x22ed
++				VF610_PAD_PTE16__GPIO_121	0x22ed
++				VF610_PAD_PTE4__GPIO_109	0x22ed
++
++
++				// Original GPIOs from vf-colibri.dtsi
++				VF610_PAD_PTA12__GPIO_5		0x22ed
++				VF610_PAD_PTA17__GPIO_7		0x22ed
++				VF610_PAD_PTB7__GPIO_29		0x22ed
++				VF610_PAD_PTB12__GPIO_34	0x22ed
++				VF610_PAD_PTB13__GPIO_35	0x22ed
++				VF610_PAD_PTB16__GPIO_38	0x22ed
++				VF610_PAD_PTB17__GPIO_39	0x22ed
++				VF610_PAD_PTB18__GPIO_40	0x22ed
++
++				VF610_PAD_PTD31__GPIO_63	0x22ed
++				VF610_PAD_PTD30__GPIO_64	0x22ed
++				VF610_PAD_PTD27__GPIO_67	0x22ed
++				VF610_PAD_PTD26__GPIO_68	0x22ed
++
++				VF610_PAD_PTB23__GPIO_93	0x22ed
++			>;
++		};
++
++		pinctrl_dspi1: dspi1grp {
++			fsl,pins = <
++				VF610_PAD_PTE12__DSPI1_CS3		0x33e2
++				VF610_PAD_PTC30__DSPI1_CS2		0x33e2
++				VF610_PAD_PTD5__DSPI1_CS0		0x33e2
++				VF610_PAD_PTD6__DSPI1_SIN		0x33e1
++				VF610_PAD_PTD7__DSPI1_SOUT		0x33e2
++				VF610_PAD_PTD8__DSPI1_SCK		0x33e2
++			>;
++		};
++
++		pinctrl_gpio_reset: gpioreset {
++			fsl,pins = <
++				// Peripheral resets
++
++				// USB HUB
++				VF610_PAD_PTB19__GPIO_41	0x22ef
++				// RF
++				VF610_PAD_PTD9__GPIO_88		0x22ef
++				// Dual Ethernet
++				VF610_PAD_PTD12__GPIO_91	0x22ef
++				// RL78 main board
++				VF610_PAD_PTB22__GPIO_44	0x22ef
++				// Carrier board
++				VF610_PAD_PTB5__GPIO_27		0x22ef
++			>;
++		};
++
++		pinctrl_gpio_leds: gpioleds {
++			fsl,pins = <
++				// 1355 Leds
++
++				// LED DS 1 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD13__GPIO_92	0x22e6
++				// LED DS 2
++				VF610_PAD_PTE21__GPIO_126	0x22e6
++				// LED DS 3
++				VF610_PAD_PTE22__GPIO_127	0x22e6
++				// LED DS 4
++				VF610_PAD_PTE13__GPIO_118	0x22e6
++				// LED DS 5
++				VF610_PAD_PTE14__GPIO_119	0x22e6
++				// LED DS 6
++				VF610_PAD_PTE5__GPIO_110	0x22e6
++				// LED DS 7
++				VF610_PAD_PTE6__GPIO_111	0x22e6
++			>;
++		};
++
++		pinctrl_gpio_keys: gpio_keys {
++			fsl,pins = <
++
++				// Buttons
++
++				// IN_BUTTON_1 - SODIMM186 - PTD24
++				VF610_PAD_PTD24__GPIO_70	0x22cd
++				// IN_BUTTON_2 - SODIMM188 - PTD11
++				VF610_PAD_PTD11__GPIO_90	0x22cd
++				// IN_BUTTON_3 - SODIMM23 - PTA20
++				VF610_PAD_PTA20__GPIO_10	0x22cd
++				// IN_BUTTON_4 - SODIMM29 - PTA31
++				VF610_PAD_PTA31__GPIO_21	0x22cd
++				// IN_BUTTON_5 - SODIMM31 - PTA21
++				VF610_PAD_PTA21__GPIO_11	0x22cd
++				// IN_BUTTON_6 - SODIMM37 - PTA30
++				VF610_PAD_PTA30__GPIO_20	0x22cd
++				// IN_BUTTON_7 - SODIMM73 - PTB21
++				VF610_PAD_PTB21__GPIO_43	0x22cd
++				// IN_BUTTON_8 - SODIMM93 - PTB28
++				VF610_PAD_PTB28__GPIO_98	0x22cd
++			>;
++		};
++
++		pinctrl_fec0: fec0grp {
++			fsl,pins = <
++				VF610_PAD_PTA9__RMII_CLKOUT		0x30d2
++				VF610_PAD_PTC0__ENET_RMII0_MDC		0x30d2
++				VF610_PAD_PTC1__ENET_RMII0_MDIO		0x30d3
++				VF610_PAD_PTC2__ENET_RMII0_CRS		0x30d1
++				VF610_PAD_PTC3__ENET_RMII0_RXD1		0x30d1
++				VF610_PAD_PTC4__ENET_RMII0_RXD0		0x30d1
++				VF610_PAD_PTC5__ENET_RMII0_RXER		0x30d1
++				VF610_PAD_PTC6__ENET_RMII0_TXD1		0x30d2
++				VF610_PAD_PTC7__ENET_RMII0_TXD0		0x30d2
++				VF610_PAD_PTC8__ENET_RMII0_TXEN		0x30d2
++				/* Disable pads multiplexed with PTC7/PTC6 */
++				VF610_PAD_PTB0__GPIO_22			0x0000
++				VF610_PAD_PTB9__GPIO_31			0x0000
++			>;
++		};
++
++		pinctrl_wdog: wdoggrp {
++			fsl,pins = <
++				// No Pull up
++				VF610_PAD_PTB26__GPIO_96		0x00C6
++				VF610_PAD_PTD29__GPIO_65		0x00C6
++			>;
++		};
++
++
++	};
++};
+diff --git a/arch/arm/boot/dts/vf500-colibri-1345-v6.dts b/arch/arm/boot/dts/vf500-colibri-1345-v6.dts
+new file mode 100644
+index 0000000..d3b8bb6
+--- /dev/null
++++ b/arch/arm/boot/dts/vf500-colibri-1345-v6.dts
+@@ -0,0 +1,477 @@
++/*
++ * Copyright 2016 Hach
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++/*
++ * !! Help !!
++ *
++ * To list all GPIO with the node that use them and the group
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinmux-pins
++ *
++ * To list all GPIO with the current port configuration
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinconf-pins
++ *
++ */
++
++/dts-v1/;
++#include "vf500-colibri.dtsi"
++#include "vf-colibri-eval-v3.dtsi"
++
++/ {
++	model = "Toradex Colibri VF50 on HACH 1345 v6 Board";
++	compatible = "toradex,vf500-colibri_vf50-on-eval", "toradex,vf500-colibri_vf50", "fsl,vf500";
++
++	// Disable gpio-keys to release GPIO 41 for Led1345_1
++	gpio-keys {
++		status = "disabled";
++	};
++
++	// gpio-keys driver
++	gpio-keys_front {
++		compatible = "gpio-keys";
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_gpio_keys>;
++		Button1 {
++			label = "Button1";
++
++			// SODIMM 186 / PTD24 / GPIO 70
++			// 32 gpio per controller : gpio 70 -> 2*32 + 6 -> gpio2 + 6
++			gpios = <&gpio2 6 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_1>;
++			debounce-interval = <1>;
++			};
++
++		Button2 {
++			label = "Button2";
++
++			// SODIMM 188 / PTD11 / GPIO 90
++			// 32 gpio per controller : gpio 90 -> 2*32 + 26 -> gpio2 + 26
++			gpios = <&gpio2 26 GPIO_ACTIVE_HIGH>;
++			linux,code = <KEY_2>;
++			debounce-interval = <1>;
++			};
++	};
++
++	/* GPIO Leds driver disabled for front panel leds because they are managed with gpio sysfs
++
++	// gpio-leds driver
++	gpio-leds {
++		compatible = "gpio-leds";
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_gpio_leds>;
++		status = "okay";
++
++
++		LedUSB {
++			label = "USB";
++			// SODIMM 100 / PTD13 / GPIO 92
++			// 32 gpio per controller : gpio 92 -> 2*32 + 28 -> gpio2 + 28
++			gpios = <&gpio2 28 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++			linux,default-trigger = "heartbeat";
++		};
++
++		LedGSM0 {
++			label = "GSM_Level_0";
++			// SODIMM 136 / PTE21 / GPIO 126
++			// 32 gpio per controller : gpio 126 -> 3*32 + 30 -> gpio3 + 30
++			gpios = <&gpio3 30 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++			linux,default-trigger = "timer";
++		};
++
++		LedGSM1 {
++			label = "GSM_Level_1";
++			// SODIMM 138 / PTE22 / GPIO 127
++			// 32 gpio per controller : gpio 127 -> 3*32 + 30 -> gpio3 + 31
++			gpios = <&gpio3 31 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++			linux,default-trigger = "none";
++		};
++
++		LedGSM2 {
++			label = "GSM_Level_2";
++			// SODIMM 140 / PTE13 / GPIO 118
++			// 32 gpio per controller : gpio 118 -> 3*32 + 22 -> gpio3 + 22
++			gpios = <&gpio3 22 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++			linux,default-trigger = "none";
++		};
++
++		LedGSM3 {
++			label = "GSM_Level_3";
++			// SODIMM 142 / PTE14 / GPIO 119
++			// 32 gpio per controller : gpio 119 -> 3*32 + 23 -> gpio3 + 23
++			gpios = <&gpio3 23 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++			linux,default-trigger = "none";
++		};
++
++		LedBT {
++			label = "Bluetooth";
++			// SODIMM 144 / PTE5 / GPIO 110
++			// 32 gpio per controller : gpio 110 -> 3*32 + 14 -> gpio3 + 14
++			gpios = <&gpio3 14 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++			linux,default-trigger = "none";
++		};
++
++		LedWifi {
++			label = "Wifi";
++			// SODIMM 146 / PTE6 / GPIO 111
++			// 32 gpio per controller : gpio 111 -> 3*32 + 15 -> gpio3 + 15
++			gpios = <&gpio3 15 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++			linux,default-trigger = "none";
++		};
++
++		LedDS5_unused {
++			label = "ds5";
++			// SODIMM 184 / PTD25 / GPIO 69
++			// 32 gpio per controller : gpio 69 -> 2*32 + 5 -> gpio2 + 5
++			gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
++			default-state = "off";
++			linux,default-trigger = "none";
++		};
++
++	};
++	*/
++
++	// Reset management
++	gpio-reset {
++		compatible = "gpio-leds";
++		pinctrl-names = "default";
++		pinctrl-0 = <&pinctrl_gpio_reset>;
++		status = "okay";
++
++		ResetUSB {
++			label = "Reset_USB_HUB";
++			// SODIMM 45 / PTB19 / GPIO 41
++			// 32 gpio per controller : gpio 41 -> 1*32 + 9 -> gpio1 + 9
++			gpios = <&gpio1 9 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		ResetRF {
++			label = "Reset_RF";
++			// SODIMM 133 / PTD9 / GPIO 88
++			// 32 gpio per controller : gpio 88 -> 2*32 + 24 -> gpio2 + 24
++			gpios = <&gpio2 24 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		ResetEth {
++			label = "Reset_Eth";
++			// SODIMM 75 / PTD12 / GPIO 91
++			// 32 gpio per controller : gpio 91 -> 2*32 + 27 -> gpio2 + 27
++			gpios = <&gpio2 27 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		ResetRL78 {
++			label = "Reset_RL78";
++			// SODIMM 77 / PTB22 / GPIO 44
++			// 32 gpio per controller : gpio 44 -> 1*32 + 12 -> gpio1 + 12
++			gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++
++		ResetCB {
++			label = "Reset_CB";
++			// SODIMM 19 / PTB5 / GPIO 27
++			// 32 gpio per controller : gpio 27 -> 0*32 + 27 -> gpio0 + 27
++			gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
++			default-state = "on";
++		};
++	};
++
++};
++
++// Disable touch controller
++&touchscreen {
++	status = "disabled";
++};
++
++// Disable LCD
++&dcu0 {
++	status = "disabled";
++};
++
++// Disable Backlight
++&bl {
++	status = "disabled";
++};
++
++&dspi1 {
++	status = "okay";
++
++	// reg is used to select the chip select used in the pinctrl_dspi1 group.
++
++	spidev10: dspi1@0 {
++		// Usage of toradex,evalspi as driver name added by toradex for this usage
++		status = "okay";
++		compatible = "toradex,evalspi";
++		reg = <0>;
++		spi-max-frequency = <50000000>;
++	};
++
++	spidev12: dspi1@2 {
++		// Usage of toradex,evalspi as driver name added by toradex for this usage
++		status = "okay";
++		compatible = "toradex,evalspi";
++		reg = <2>;
++		spi-max-frequency = <50000000>;
++	};
++
++	spidev13: dspi1@3 {
++		// Usage of toradex,evalspi as driver name added by toradex for this usage
++		status = "okay";
++		compatible = "toradex,evalspi";
++		reg = <3>;
++		spi-max-frequency = <50000000>;
++	};
++
++	// Remove unused drivers
++	/delete-node/can@0;
++	/delete-node/spidev@0;
++
++};
++
++// Disabled to release the GPIO 27 / Sodimm 19 use to drive the Carrier board reset
++&uart1 {
++	status = "disabled";
++};
++
++
++/*
++&i2c0 {
++	// M41T0M6 real time clock on carrier board
++	rtc: m41t0m6@68 {
++		status = "disabled";
++	};
++};
++*/
++
++/*
++// To force i2c bus at 100kHz
++&i2c0 {
++	clock-frequency = <100000>;
++};
++*/
++
++// Disable pwm0 and pwm1 for fec0 ethernet port
++&pwm0 {
++	status = "disabled";
++};
++
++&pwm1 {
++	status = "disabled";
++};
++
++// Enable second ethernet port
++&fec0 {
++	phy-mode = "rmii";
++	pinctrl-names = "default";
++	pinctrl-0 = <&pinctrl_fec0>;
++	status = "okay";
++};
++
++&iomuxc {
++	vf610-colibri {
++		pinctrl_additionalgpio: additionalgpios {
++			fsl,pins = <
++
++				// Force default Buttons status in case pinctrl_gpio_keys is not used
++
++				// IN_BUTTON_1 - SODIMM186 - PTD24 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD24__GPIO_70	0x22ed
++				// 0x0631
++				// IN_BUTTON_2 - SODIMM188 - PTD11 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD11__GPIO_90	0x22ed
++
++				// RF GPIOs
++
++				// MM_EN - SODIMM 135 - PTD10 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD10__GPIO_89	0x22ed
++				// MM_IRQ - SODIMM 102 - PTB6 - already OK in vf-colibri.dtsi
++				// Todo
++//				VF610_PAD_PTB6__GPIO_28		0x22ed
++				// 3G ON/OFF - SODIMM 96 - PTA7 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTA7__GPIO_134	0x22ed
++				// 3G Reset - SODIMM 19 - PTB5
++				VF610_PAD_PTB5__GPIO_27		0x22ed
++
++				// UART B EN - SODIMM 104 - PTD28 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD28__GPIO_66	0x22ed
++
++				// RF module reset
++				VF610_PAD_PTD9__GPIO_88		0x22ed
++				// Dual ethernet reset
++				VF610_PAD_PTD12__GPIO_91	0x22ed
++				// USB HUB reset
++				VF610_PAD_PTB19__GPIO_41	0x22ed
++				// Main board RL78 reset
++				VF610_PAD_PTB22__GPIO_44	0x22ed
++
++				// Force default led status as pinctrl_gpio_leds is not requested by the gpio-leds driver
++
++				// LED DS 1 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD13__GPIO_92	0x22ed
++				// LED DS 2
++				VF610_PAD_PTE21__GPIO_126	0x22ed
++				// LED DS 3
++				VF610_PAD_PTE22__GPIO_127	0x22ed
++				// LED DS 4
++				VF610_PAD_PTE13__GPIO_118	0x22ed
++				// LED DS 5
++				VF610_PAD_PTE14__GPIO_119	0x22ed
++				// LED DS 6
++				VF610_PAD_PTE5__GPIO_110	0x22ed
++				// LED DS 7
++				VF610_PAD_PTE6__GPIO_111	0x22ed
++				// LED DS 8 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD25__GPIO_69	0x22ed
++
++				// RL78 IO for 1345 v6
++				// RL78 IRQ0-19
++				VF610_PAD_PTE15__GPIO_120	0x22ed
++				VF610_PAD_PTE27__GPIO_132	0x22ed
++				VF610_PAD_PTE23__GPIO_128	0x22ed
++				VF610_PAD_PTE19__GPIO_124	0x22ed
++				VF610_PAD_PTE28__GPIO_133	0x22ed
++				VF610_PAD_PTE24__GPIO_129	0x22ed
++				VF610_PAD_PTE11__GPIO_116	0x22ed
++				VF610_PAD_PTE9__GPIO_114	0x22ed
++				VF610_PAD_PTE10__GPIO_115	0x22ed
++				VF610_PAD_PTE17__GPIO_122	0x22ed
++				VF610_PAD_PTE25__GPIO_130	0x22ed
++				VF610_PAD_PTE26__GPIO_131	0x22ed
++				VF610_PAD_PTE2__GPIO_107	0x22ed
++				VF610_PAD_PTE8__GPIO_113	0x22ed
++				VF610_PAD_PTE7__GPIO_112	0x22ed
++				VF610_PAD_PTE20__GPIO_125	0x22ed
++				VF610_PAD_PTE18__GPIO_123	0x22ed
++				VF610_PAD_PTE16__GPIO_121	0x22ed
++				VF610_PAD_PTE4__GPIO_109	0x22ed
++
++
++				// Original GPIOs from vf-colibri.dtsi
++				VF610_PAD_PTA12__GPIO_5		0x22ed
++				VF610_PAD_PTA17__GPIO_7		0x22ed
++				VF610_PAD_PTA20__GPIO_10	0x22ed
++				VF610_PAD_PTA21__GPIO_11	0x22ed
++				VF610_PAD_PTA30__GPIO_20	0x22ed
++				VF610_PAD_PTA31__GPIO_21	0x22ed
++				VF610_PAD_PTB7__GPIO_29		0x22ed
++				VF610_PAD_PTB12__GPIO_34	0x22ed
++				VF610_PAD_PTB13__GPIO_35	0x22ed
++				VF610_PAD_PTB16__GPIO_38	0x22ed
++				VF610_PAD_PTB17__GPIO_39	0x22ed
++				VF610_PAD_PTB18__GPIO_40	0x22ed
++				VF610_PAD_PTB21__GPIO_43	0x22ed
++
++				VF610_PAD_PTD31__GPIO_63	0x22ed
++				VF610_PAD_PTD30__GPIO_64	0x22ed
++				VF610_PAD_PTD29__GPIO_65	0x22ed
++				VF610_PAD_PTD27__GPIO_67	0x22ed
++				VF610_PAD_PTD26__GPIO_68	0x22ed
++
++				VF610_PAD_PTB23__GPIO_93	0x22ed
++				VF610_PAD_PTB26__GPIO_96	0x22ed
++				VF610_PAD_PTB28__GPIO_98	0x22ed
++
++			>;
++		};
++
++		pinctrl_dspi1: dspi1grp {
++			fsl,pins = <
++				VF610_PAD_PTE12__DSPI1_CS3		0x33e2
++				VF610_PAD_PTC30__DSPI1_CS2		0x33e2
++				VF610_PAD_PTD5__DSPI1_CS0		0x33e2
++				VF610_PAD_PTD6__DSPI1_SIN		0x33e1
++				VF610_PAD_PTD7__DSPI1_SOUT		0x33e2
++				VF610_PAD_PTD8__DSPI1_SCK		0x33e2
++			>;
++		};
++
++		pinctrl_gpio_reset: gpioreset {
++			fsl,pins = <
++				// Peripheral resets
++
++				// USB HUB
++				VF610_PAD_PTB19__GPIO_41	0x22ed
++				// RF
++				VF610_PAD_PTD9__GPIO_88		0x22ed
++				// Dual Ethernet
++				VF610_PAD_PTD12__GPIO_91	0x22ed
++				// RL78 main board
++				VF610_PAD_PTB22__GPIO_44	0x22ed
++				// Carrier board
++				VF610_PAD_PTB5__GPIO_27		0x22ed
++			>;
++		};
++
++		pinctrl_gpio_leds: gpioleds {
++			fsl,pins = <
++				// 1355 Leds
++
++				// LED DS 1 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD13__GPIO_92	0x22ed
++				// LED DS 2
++				VF610_PAD_PTE21__GPIO_126	0x22ed
++				// LED DS 3
++				VF610_PAD_PTE22__GPIO_127	0x22ed
++				// LED DS 4
++				VF610_PAD_PTE13__GPIO_118	0x22ed
++				// LED DS 5
++				VF610_PAD_PTE14__GPIO_119	0x22ed
++				// LED DS 6
++				VF610_PAD_PTE5__GPIO_110	0x22ed
++				// LED DS 7
++				VF610_PAD_PTE6__GPIO_111	0x22ed
++				// LED DS 8
++				VF610_PAD_PTD25__GPIO_69	0x22ed
++			>;
++		};
++
++		pinctrl_gpio_keys: gpio_keys {
++			fsl,pins = <
++
++				// Buttons
++
++				// IN_BUTTON_1 - SODIMM186 - PTD24 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD24__GPIO_70	0x042d
++				// 0x0631
++
++				// IN_BUTTON_2 - SODIMM188 - PTD11 - already OK in vf-colibri.dtsi
++				VF610_PAD_PTD11__GPIO_90	0x22ed
++
++			>;
++		};
++
++		pinctrl_fec0: fec0grp {
++			fsl,pins = <
++				VF610_PAD_PTA9__RMII_CLKOUT		0x30d2
++				VF610_PAD_PTC0__ENET_RMII0_MDC		0x30d2
++				VF610_PAD_PTC1__ENET_RMII0_MDIO		0x30d3
++				VF610_PAD_PTC2__ENET_RMII0_CRS		0x30d1
++				VF610_PAD_PTC3__ENET_RMII0_RXD1		0x30d1
++				VF610_PAD_PTC4__ENET_RMII0_RXD0		0x30d1
++				VF610_PAD_PTC5__ENET_RMII0_RXER		0x30d1
++				VF610_PAD_PTC6__ENET_RMII0_TXD1		0x30d2
++				VF610_PAD_PTC7__ENET_RMII0_TXD0		0x30d2
++				VF610_PAD_PTC8__ENET_RMII0_TXEN		0x30d2
++				/* Disable pads multiplexed with PTC7/PTC6 */
++				VF610_PAD_PTB0__GPIO_22			0x0000
++				VF610_PAD_PTB9__GPIO_31			0x0000
++			>;
++		};
++
++
++	};
++};
+diff --git a/arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts b/arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts
+new file mode 100644
+index 0000000..0e3198e
+--- /dev/null
++++ b/arch/arm/boot/dts/vf500-colibri-XMF1345-B.dts
+@@ -0,0 +1,33 @@
++/*
++ * Copyright 2016 Hach
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++/*
++ * !! Help !!
++ *
++ * To list all GPIO with the node that use them and the group
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinmux-pins
++ *
++ * To list all GPIO with the current port configuration
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinconf-pins
++ *
++ */
++
++/dts-v1/;
++#include "vf500-colibri.dtsi"
++#include "vf-colibri-XMF1345-B.dtsi"
++
++/ {
++	model = "Toradex Colibri VF50 on HACH XMF1345 B Board";
++	compatible = "toradex,vf500-colibri_vf50-on-eval", "toradex,vf500-colibri_vf50", "fsl,vf500";
++};
++
++// Disable touch controller
++&touchscreen {
++	status = "disabled";
++};
+diff --git a/arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts b/arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts
+new file mode 100644
+index 0000000..3951431
+--- /dev/null
++++ b/arch/arm/boot/dts/vf500-colibri-XMF1345-B_L2.dts
+@@ -0,0 +1,53 @@
++/*
++ * Copyright 2016 Hach
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++/*
++ * !! Help !!
++ *
++ * To list all GPIO with the node that use them and the group
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinmux-pins
++ *
++ * To list all GPIO with the current port configuration
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinconf-pins
++ *
++ */
++
++/dts-v1/;
++#include "vf500-colibri.dtsi"
++#include "vf-colibri-XMF1345-B.dtsi"
++
++/ {
++	model = "Toradex Colibri VF50 on HACH XMF1345 B Board";
++	compatible = "toradex,vf500-colibri_vf50-on-eval", "toradex,vf500-colibri_vf50", "fsl,vf500";
++
++	aliases {
++               ethernet0 = &esw;
++        };
++
++};
++
++// Disable touch controller
++&touchscreen {
++	status = "disabled";
++};
++
++
++// Disable ethernet ports
++&fec0 {
++	status = "disabled";
++};
++
++&fec1 {
++	status = "disabled";
++};
++
++// Enable switch
++&esw {
++       status = "okay";
++};
+diff --git a/arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts b/arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts
+new file mode 100644
+index 0000000..c192a47
+--- /dev/null
++++ b/arch/arm/boot/dts/vf610-colibri-XMF1345-B.dts
+@@ -0,0 +1,28 @@
++/*
++ * Copyright 2016 Hach
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++/*
++ * !! Help !!
++ *
++ * To list all GPIO with the node that use them and the group
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinmux-pins
++ *
++ * To list all GPIO with the current port configuration
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinconf-pins
++ *
++ */
++
++/dts-v1/;
++#include "vf610-colibri.dtsi"
++#include "vf-colibri-XMF1345-B.dtsi"
++
++/ {
++	model = "Toradex Colibri VF61 on HACH XMF1345 B Board";
++	compatible = "toradex,vf610-colibri_vf61-on-eval", "toradex,vf610-colibri_vf61", "fsl,vf610";
++};
+diff --git a/arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts b/arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts
+new file mode 100644
+index 0000000..be59f9a
+--- /dev/null
++++ b/arch/arm/boot/dts/vf610-colibri-XMF1345-B_L2.dts
+@@ -0,0 +1,47 @@
++/*
++ * Copyright 2016 Hach
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ */
++
++/*
++ * !! Help !!
++ *
++ * To list all GPIO with the node that use them and the group
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinmux-pins
++ *
++ * To list all GPIO with the current port configuration
++ * cat /sys/kernel/debug/pinctrl/40048000.iomuxc/pinconf-pins
++ *
++ */
++
++/dts-v1/;
++#include "vf610-colibri.dtsi"
++#include "vf-colibri-XMF1345-B.dtsi"
++
++/ {
++	model = "Toradex Colibri VF61 on HACH XMF1345 B Board";
++	compatible = "toradex,vf610-colibri_vf61-on-eval", "toradex,vf610-colibri_vf61", "fsl,vf610";
++
++	aliases {
++               ethernet0 = &esw;
++        };
++
++};
++
++// Disable ethernet ports
++&fec0 {
++	status = "disabled";
++};
++
++&fec1 {
++	status = "disabled";
++};
++
++// Enable switch
++&esw {
++       status = "okay";
++};
+-- 
+2.7.4
+

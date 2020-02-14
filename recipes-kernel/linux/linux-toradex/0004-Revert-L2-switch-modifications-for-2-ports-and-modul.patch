@@ -1,0 +1,502 @@
+From 5625e74ef900f7dc135e924c82879b21fe4c2103 Mon Sep 17 00:00:00 2001
+From: sorlandini <sandrine.orlandini@hach.com>
+Date: Thu, 16 Mar 2017 16:45:42 +0100
+Subject: [PATCH] Revert L2 switch modifications for 2 ports and module
+
+---
+ drivers/net/ethernet/freescale/Kconfig         |   2 +-
+ drivers/net/ethernet/freescale/fsl_l2_switch.c | 331 +++++++++++++++++++++++--
+ drivers/net/ethernet/freescale/fsl_l2_switch.h |  27 ++
+ 3 files changed, 340 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/Kconfig b/drivers/net/ethernet/freescale/Kconfig
+index c7df0ae..84e29f5 100644
+--- a/drivers/net/ethernet/freescale/Kconfig
++++ b/drivers/net/ethernet/freescale/Kconfig
+@@ -31,7 +31,7 @@ config FEC
+ 	  controller on some Motorola ColdFire and Freescale i.MX processors.
+ 
+ config FSL_L2_SWITCH
+-	tristate "Ethernet switch controller (Freescale Vybrid platform)"
++	bool "Ethernet switch controller(Freescale ColdFire and Vybrid platform)"
+ 	depends on (SOC_VF610)
+ 	help
+ 	  Say Y here if you want to use the built-in ethernet switch
+diff --git a/drivers/net/ethernet/freescale/fsl_l2_switch.c b/drivers/net/ethernet/freescale/fsl_l2_switch.c
+index af38259..4d961c0 100644
+--- a/drivers/net/ethernet/freescale/fsl_l2_switch.c
++++ b/drivers/net/ethernet/freescale/fsl_l2_switch.c
+@@ -40,6 +40,74 @@ static unsigned char macaddr[ETH_ALEN];
+ module_param_array(macaddr, byte, NULL, 0);
+ MODULE_PARM_DESC(macaddr, "FEC Ethernet MAC address");
+ 
++static void switch_adjust_link1(struct net_device *dev)
++{
++	struct switch_enet_private *priv = netdev_priv(dev);
++	struct phy_device *phydev1 = priv->phydev[0];
++	int new_state = 0;
++
++	if (phydev1->link != PHY_DOWN) {
++		if (phydev1->duplex != priv->phy1_duplex) {
++			new_state = 1;
++			priv->phy1_duplex = phydev1->duplex;
++		}
++
++		if (phydev1->speed != priv->phy1_speed) {
++			new_state = 1;
++			priv->phy1_speed = phydev1->speed;
++		}
++
++		if (priv->phy1_old_link == PHY_DOWN) {
++			new_state = 1;
++			priv->phy1_old_link = phydev1->link;
++		}
++	} else if (priv->phy1_old_link) {
++		new_state = 1;
++		priv->phy1_old_link = PHY_DOWN;
++		priv->phy1_speed = 0;
++		priv->phy1_duplex = -1;
++	}
++
++	if (new_state) {
++		ports_link_status.port1_link_status = phydev1->link;
++		phy_print_status(phydev1);
++	}
++}
++
++static void switch_adjust_link2(struct net_device *dev)
++{
++	struct switch_enet_private *priv = netdev_priv(dev);
++	struct phy_device *phydev2 = priv->phydev[1];
++	int new_state = 0;
++
++	if (phydev2->link != PHY_DOWN) {
++		if (phydev2->duplex != priv->phy2_duplex) {
++			new_state = 1;
++			priv->phy2_duplex = phydev2->duplex;
++		}
++
++		if (phydev2->speed != priv->phy2_speed) {
++			new_state = 1;
++			priv->phy2_speed = phydev2->speed;
++		}
++
++		if (priv->phy2_old_link == PHY_DOWN) {
++			new_state = 1;
++			priv->phy2_old_link = phydev2->link;
++		}
++	} else if (priv->phy2_old_link) {
++		new_state = 1;
++		priv->phy2_old_link = PHY_DOWN;
++		priv->phy2_speed = 0;
++		priv->phy2_duplex = -1;
++	}
++
++	if (new_state) {
++		ports_link_status.port2_link_status = phydev2->link;
++		phy_print_status(phydev2);
++	}
++}
++
+ static void switch_hw_init(struct net_device *dev)
+ {
+ 	struct switch_enet_private *fep = netdev_priv(dev);
+@@ -55,6 +123,8 @@ static void switch_hw_init(struct net_device *dev)
+ 	writel(FSL_FEC_TCR_FDEN, fep->enetbase + FSL_FEC_TCR0);
+ 	writel(FSL_FEC_TCR_FDEN, fep->enetbase + FSL_FEC_TCR1);
+ 
++	writel(0x1a, fep->enetbase + FSL_FEC_MSCR0);
++
+ 	/* Set the station address for the ENET Adapter */
+ 	writel(dev->dev_addr[3] |
+ 		dev->dev_addr[2] << 8 |
+@@ -188,11 +258,94 @@ static void switch_restart(struct net_device *dev, int duplex)
+ 		}
+ 	}
+ 
++	/* hardware has set in hw_init */
++	fep->full_duplex = duplex;
++
+ 	/* Clear any outstanding interrupt.*/
+ 	writel(0xffffffff, fep->membase + FEC_ESW_ISR);
+ 	writel(FSL_ESW_IMR_RXF | FSL_ESW_IMR_TXF, fep->membase + FEC_ESW_IMR);
+ }
+ 
++static int switch_init_phy(struct net_device *dev)
++{
++	struct switch_enet_private *priv = netdev_priv(dev);
++	struct phy_device *phydev[SWITCH_EPORT_NUMBER] = {NULL, NULL};
++	int i, j = 0;
++
++	/* search for connect PHY device */
++	for (i = 0; i < PHY_MAX_ADDR; i++) {
++		struct phy_device *const tmp_phydev =
++			priv->mdio_bus->phy_map[i];
++
++		if (!tmp_phydev)
++			continue;
++
++		phydev[j++] = tmp_phydev;
++		if (j >= SWITCH_EPORT_NUMBER)
++			break;
++	}
++
++	/* now we are supposed to have a proper phydev, to attach to... */
++	if ((!phydev[0]) && (!phydev[1])) {
++		netdev_info(dev, "%s: Didn't find any PHY device at all\n",
++			dev->name);
++		return -ENODEV;
++	}
++
++	priv->phy1_link = PHY_DOWN;
++	priv->phy1_old_link = PHY_DOWN;
++	priv->phy1_speed = 0;
++	priv->phy1_duplex = -1;
++
++	priv->phy2_link = PHY_DOWN;
++	priv->phy2_old_link = PHY_DOWN;
++	priv->phy2_speed = 0;
++	priv->phy2_duplex = -1;
++
++	phydev[0] = phy_connect(dev, dev_name(&phydev[0]->dev),
++		&switch_adjust_link1, PHY_INTERFACE_MODE_RMII);
++	if (IS_ERR(phydev[0])) {
++		netdev_err(dev, " %s phy_connect failed\n", __func__);
++		return PTR_ERR(phydev[0]);
++	}
++
++	phydev[1] = phy_connect(dev, dev_name(&phydev[1]->dev),
++		&switch_adjust_link2, PHY_INTERFACE_MODE_RMII);
++	if (IS_ERR(phydev[1])) {
++		netdev_err(dev, " %s phy_connect failed\n", __func__);
++		return PTR_ERR(phydev[1]);
++	}
++
++	for (i = 0; i < SWITCH_EPORT_NUMBER; i++) {
++		phydev[i]->supported &= PHY_BASIC_FEATURES;
++		phydev[i]->advertising = phydev[i]->supported;
++		priv->phydev[i] = phydev[i];
++		netdev_info(dev, "attached phy %i to driver %s "
++			"(mii_bus:phy_addr=%s, irq=%d)\n",
++			phydev[i]->addr, phydev[i]->drv->name,
++			dev_name(&priv->phydev[i]->dev),
++			priv->phydev[i]->irq);
++	}
++
++	return 0;
++}
++
++static void switch_stop(struct net_device *dev)
++{
++	struct switch_enet_private *fep = netdev_priv(dev);
++
++	/* We cannot expect a graceful transmit
++	 * stop without link
++	 */
++	if (fep->phy1_link)
++		udelay(10);
++	if (fep->phy2_link)
++		udelay(10);
++
++	/* Whack a reset.  We should wait for this */
++	udelay(10);
++}
++
+ static int switch_enet_clk_enable(struct net_device *ndev, bool enable)
+ {
+ 	struct switch_enet_private *fep = netdev_priv(ndev);
+@@ -305,8 +458,24 @@ static int switch_alloc_buffers(struct net_device *ndev)
+ static int switch_enet_open(struct net_device *dev)
+ {
+ 	struct switch_enet_private *fep = netdev_priv(dev);
++	int port = 0;
+ 	unsigned long tmp = 0;
+ 
++	fep->phy1_link = 0;
++	fep->phy2_link = 0;
++
++	switch_init_phy(dev);
++	for (port = 0; port < SWITCH_EPORT_NUMBER; port++) {
++		phy_write(fep->phydev[port], MII_BMCR, BMCR_RESET);
++		udelay(10);
++		phy_start(fep->phydev[port]);
++	}
++
++	fep->phy1_old_link = 0;
++	fep->phy2_old_link = 0;
++	fep->phy1_link = 1;
++	fep->phy2_link = 1;
++
+ 	/* no phy,  go full duplex,  it's most likely a hub chip */
+ 	switch_restart(dev, 1);
+ 
+@@ -342,10 +511,18 @@ static int switch_enet_open(struct net_device *dev)
+ static int switch_enet_close(struct net_device *dev)
+ {
+ 	struct switch_enet_private *fep = netdev_priv(dev);
++	int i;
+ 
+ 	/* Don't know what to do yet. */
+ 	fep->opened = 0;
+ 	netif_stop_queue(dev);
++	switch_stop(dev);
++
++	for (i = 0; i < SWITCH_EPORT_NUMBER; i++) {
++		phy_disconnect(fep->phydev[i]);
++		phy_stop(fep->phydev[i]);
++		phy_write(fep->phydev[i], MII_BMCR, BMCR_PDOWN);
++	}
+ 
+ 	return 0;
+ }
+@@ -464,6 +641,7 @@ static int switch_enet_init(struct net_device *dev)
+ 	}
+ 
+ 	spin_lock_init(&fep->hw_lock);
++	spin_lock_init(&fep->mii_lock);
+ 
+ 	writel(FSL_ESW_MODE_SW_RST, fep->membase + FEC_ESW_MODE);
+ 	udelay(10);
+@@ -515,6 +693,15 @@ static int switch_enet_init(struct net_device *dev)
+ 	writel(0xffffffff, fep->membase + FEC_ESW_ISR);
+ 	writel(FSL_ESW_IMR_RXF | FSL_ESW_IMR_TXF, fep->membase + FEC_ESW_IMR);
+ 
++	/* Queue up command to detect the PHY and initialize the
++	 * remainder of the interface.
++	 */
++#ifndef CONFIG_FEC_SHARED_PHY
++	fep->phy_addr = 0;
++#else
++	fep->phy_addr = fep->index;
++#endif
++
+ 	fep->sequence_done = 1;
+ 
+ 	return ret;
+@@ -717,6 +904,55 @@ rx_processing_done:
+ 	spin_unlock_irqrestore(&fep->hw_lock, flags);
+ }
+ 
++static int fec_mdio_transfer(struct mii_bus *bus, int phy_id,
++	int reg, int regval)
++{
++
++	struct switch_enet_private *fep = bus->priv;
++	unsigned long   flags;
++	int retval = 0, tries = 100;
++
++	spin_lock_irqsave(&fep->mii_lock, flags);
++
++	fep->mii_timeout = 0;
++	init_completion(&fep->mdio_done);
++
++	regval |= phy_id << 23;
++	writel(regval, fep->enetbase + FSL_FEC_MMFR0);
++
++	/* wait for it to finish, this takes about 23 us on lite5200b */
++	while (!(readl(fep->enetbase + FSL_FEC_EIR0)
++		& FEC_ENET_MII) && --tries)
++		udelay(5);
++	if (!tries) {
++		printk(KERN_ERR "%s timeout\n", __func__);
++		return -ETIMEDOUT;
++	}
++
++	writel(FEC_ENET_MII, fep->enetbase + FSL_FEC_EIR0);
++	retval = (readl(fep->enetbase + FSL_FEC_MMFR0) & 0xffff);
++	spin_unlock_irqrestore(&fep->mii_lock, flags);
++
++	return retval;
++}
++
++static int fec_enet_mdio_read(struct mii_bus *bus,
++	int phy_id, int reg)
++{
++	int ret = 0;
++
++	ret = fec_mdio_transfer(bus, phy_id, reg,
++		mk_mii_read(reg));
++	return ret;
++}
++
++static int fec_enet_mdio_write(struct mii_bus *bus,
++	int phy_id, int reg, u16 data)
++{
++	return fec_mdio_transfer(bus, phy_id, reg,
++			mk_mii_write(reg, data));
++}
++
+ /* The interrupt handler */
+ static irqreturn_t switch_enet_interrupt(int irq, void *dev_id)
+ {
+@@ -747,33 +983,80 @@ static irqreturn_t switch_enet_interrupt(int irq, void *dev_id)
+ 	return ret;
+ }
+ 
+-static int eth_switch_remove(struct platform_device *pdev)
++static void switch_enet_mdio_remove(struct switch_enet_private *fep)
+ {
+-	struct net_device *dev = platform_get_drvdata(pdev);
+-	struct switch_enet_private *fep;
++		mdiobus_unregister(fep->mdio_bus);
++		kfree(fep->mdio_bus->irq);
++		mdiobus_free(fep->mdio_bus);
++}
+ 
+-	fep = netdev_priv(dev);
++static int fec_mdio_register(struct platform_device *pdev)
++{
++	struct net_device *ndev = platform_get_drvdata(pdev);
++	struct switch_enet_private *fep = netdev_priv(ndev);
++	int phy_addr = 0, ret = 0;
+ 
+-	unregister_netdev(dev);
++	fep->mdio_bus = mdiobus_alloc();
++	if (!fep->mdio_bus) {
++		printk(KERN_ERR "ethernet switch mdiobus_alloc fail\n");
++		return -ENOMEM;
++	}
+ 
+-	writel(0, fep->enetbase + FSL_FEC_ECR0);
+-	writel(0, fep->enetbase + FSL_FEC_ECR1);
+-	udelay(10);
++	fep->mdio_bus->name = "fsl l2 switch MII Bus";
+ 
+-	writel(FSL_ESW_MODE_SW_RST, fep->membase + FEC_ESW_MODE);
+-	udelay(10);
+-	writel(FSL_ESW_MODE_STATRST, fep->membase + FEC_ESW_MODE);
+-	writel(0, fep->membase + FEC_ESW_MODE);
++	snprintf(fep->mdio_bus->id, MII_BUS_ID_SIZE, "%x", fep->dev_id);
++
++	fep->mdio_bus->read = &fec_enet_mdio_read;
++	fep->mdio_bus->write = &fec_enet_mdio_write;
++	fep->mdio_bus->priv = fep;
++	fep->mdio_bus->parent = &pdev->dev;
++
++	fep->mdio_bus->irq = kmalloc(sizeof(int) * PHY_MAX_ADDR, GFP_KERNEL);
++	if (!fep->mdio_bus->irq) {
++		ret = -ENOMEM;
++		return ret;
++	}
++
++	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++)
++		fep->mdio_bus->irq[phy_addr] = PHY_POLL;
++
++	ret = mdiobus_register(fep->mdio_bus);
++	if (ret) {
++		mdiobus_free(fep->mdio_bus);
++		netdev_err(ndev, "%s: ethernet mdiobus_register fail\n",
++			ndev->name);
++		return -EIO;
++	}
+ 
+-	/* Disable transmit/receive on all ports */
+-	writel(0, fep->membase + FEC_ESW_PER);
++	printk(KERN_INFO "%s mdiobus(%s) register ok.\n",
++		fep->mdio_bus->name, fep->mdio_bus->id);
++	return ret;
++}
++
++static int eth_switch_remove(struct platform_device *pdev)
++{
++	struct net_device *dev = NULL;
++	struct switch_enet_private *fep;
++	struct switch_platform_private *chip;
++	int slot = 0;
++
++	chip = platform_get_drvdata(pdev);
++	if (chip) {
++		for (slot = 0; slot < chip->num_slots; slot++) {
++			fep = chip->fep_host[slot];
++			dev = fep->netdev;
++			fep->sequence_done = 1;
++			unregister_netdev(dev);
++			free_netdev(dev);
++		}
+ 
+-	clk_disable_unprepare(fep->clk_enet1);
+-	clk_disable_unprepare(fep->clk_enet0);
+-	clk_disable_unprepare(fep->clk_enet);
+-	clk_disable_unprepare(fep->clk_esw);
++		platform_set_drvdata(pdev, NULL);
++		kfree(chip);
+ 
+-	free_netdev(dev);
++	} else
++		netdev_err(dev, "%s: Can not get the "
++			"switch_platform_private %x\n", __func__,
++			(unsigned int)chip);
+ 
+ 	return 0;
+ }
+@@ -869,6 +1152,15 @@ static int eth_switch_probe(struct platform_device *pdev)
+ 		return -EIO;
+ 	}
+ 
++	err = fec_mdio_register(pdev);
++	if (err) {
++		netdev_err(ndev, "%s: L2 switch fec_mdio_register error!\n",
++				ndev->name);
++		free_netdev(ndev);
++		platform_set_drvdata(pdev, NULL);
++		return -ENOMEM;
++	}
++
+ 	/* register network device */
+ 	ret = register_netdev(ndev);
+ 	if (ret)
+@@ -880,6 +1172,7 @@ static int eth_switch_probe(struct platform_device *pdev)
+ 	return 0;
+ 
+ failed_register:
++	switch_enet_mdio_remove(fep);
+ failed_clk:
+ failed_ioremap:
+ 	free_netdev(ndev);
+diff --git a/drivers/net/ethernet/freescale/fsl_l2_switch.h b/drivers/net/ethernet/freescale/fsl_l2_switch.h
+index 62b5f12..b85345d 100644
+--- a/drivers/net/ethernet/freescale/fsl_l2_switch.h
++++ b/drivers/net/ethernet/freescale/fsl_l2_switch.h
+@@ -284,12 +284,39 @@ struct switch_enet_private {
+ 	/* hold while accessing the HW like ringbuffer for tx/rx but not MAC */
+ 	spinlock_t hw_lock;
+ 
++	/* hold while accessing the mii_list_t() elements */
++	spinlock_t mii_lock;
++	struct mii_bus *mdio_bus;
++	struct phy_device *phydev[SWITCH_EPORT_NUMBER];
++
++	uint    phy_id;
++	uint    phy_id_done;
++	uint    phy_status;
++	uint    phy_speed;
++	uint	mii_timeout;
++	struct	completion mdio_done;
++
++	phy_info_t const        *phy;
++	struct work_struct phy_task;
++
+ 	uint    sequence_done;
++	uint    mii_phy_task_queued;
++
++	uint    phy_addr;
+ 
+ 	int     index;
+ 	int     opened;
+ 	int     full_duplex;
+ 	int     msg_enable;
++	int     phy1_link;
++	int     phy1_old_link;
++	int     phy1_duplex;
++	int     phy1_speed;
++
++	int     phy2_link;
++	int     phy2_old_link;
++	int     phy2_duplex;
++	int     phy2_speed;
+ 
+ 	/* timer related */
+ 	/* current time (for timestamping) */
+-- 
+2.7.4
+

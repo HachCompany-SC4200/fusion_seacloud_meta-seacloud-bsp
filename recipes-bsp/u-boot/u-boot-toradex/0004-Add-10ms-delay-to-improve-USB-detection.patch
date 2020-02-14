@@ -1,0 +1,25 @@
+From d7c127823dd5a09967f277b2ab2875a401537bce Mon Sep 17 00:00:00 2001
+From: sorlandini <sandrine.orlandini@hach.com>
+Date: Wed, 1 Mar 2017 15:38:11 +0100
+Subject: [PATCH] Add 10ms delay to improve USB detection
+
+---
+ drivers/usb/host/ehci-vf.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/usb/host/ehci-vf.c b/drivers/usb/host/ehci-vf.c
+index f389bff..c64ecd2 100644
+--- a/drivers/usb/host/ehci-vf.c
++++ b/drivers/usb/host/ehci-vf.c
+@@ -150,6 +150,8 @@ int ehci_vf_common_init(struct usb_ehci *ehci, int index)
+ 	usb_oc_config(index);
+ 	usb_internal_phy_clock_gate(index);
+ 	usb_phy_enable(index, ehci);
++	/*SeaCloud: delay to improve USB detection*/
++	mdelay(10);
+ 
+ 	return 0;
+ }
+-- 
+2.7.4
+

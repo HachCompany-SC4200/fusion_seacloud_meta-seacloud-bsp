@@ -1,0 +1,28 @@
+From 4a76b1a040cb66973678618022ede78742221738 Mon Sep 17 00:00:00 2001
+From: Guillaume Deroire <guillaume.deroire@hach.com>
+Date: Mon, 20 Jun 2016 18:14:49 +0200
+Subject: [PATCH 2/3] Disable i2c dma on read
+
+---
+ drivers/i2c/busses/i2c-imx.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/i2c/busses/i2c-imx.c b/drivers/i2c/busses/i2c-imx.c
+index d4d8536..e4eb53e 100644
+--- a/drivers/i2c/busses/i2c-imx.c
++++ b/drivers/i2c/busses/i2c-imx.c
+@@ -824,8 +824,9 @@ static int i2c_imx_read(struct imx_i2c_struct *i2c_imx, struct i2c_msg *msgs, bo
+ 
+ 	dev_dbg(&i2c_imx->adapter.dev, "<%s> read data\n", __func__);
+ 
+-	if (i2c_imx->dma && msgs->len >= DMA_THRESHOLD && !block_data)
+-		return i2c_imx_dma_read(i2c_imx, msgs, is_lastmsg);
++//  Disable dma on read - it seems to cause some trouble ...
++//	if (i2c_imx->dma && msgs->len >= DMA_THRESHOLD && !block_data)
++//		return i2c_imx_dma_read(i2c_imx, msgs, is_lastmsg);
+ 
+ 	/* read data */
+ 	for (i = 0; i < msgs->len; i++) {
+-- 
+1.9.1
+

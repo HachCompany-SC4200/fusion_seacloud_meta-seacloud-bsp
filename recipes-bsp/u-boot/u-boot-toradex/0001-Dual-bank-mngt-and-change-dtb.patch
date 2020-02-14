@@ -1,0 +1,84 @@
+From 94b64d0b1698898ea667dd0f8bcc0a10ea114662 Mon Sep 17 00:00:00 2001
+From: sorlandini <sandrine.orlandini@hach.com>
+Date: Mon, 3 Apr 2017 16:25:33 +0200
+Subject: [PATCH] Dual bank mngt and change dtb
+
+---
+ include/configs/colibri_vf.h | 41 ++++++++++++++++++++++++++++++-----------
+ 1 file changed, 30 insertions(+), 11 deletions(-)
+
+diff --git a/include/configs/colibri_vf.h b/include/configs/colibri_vf.h
+index 9fc65a5..6b5a848 100644
+--- a/include/configs/colibri_vf.h
++++ b/include/configs/colibri_vf.h
+@@ -33,6 +33,9 @@
+ 
+ #define CONFIG_FSL_DCU_FB
+ 
++/* Allow doing simple math in shell (*, -, +, /, &, |, ^) */
++#define CONFIG_CMD_SETEXPR
++
+ #ifdef CONFIG_FSL_DCU_FB
+ #define CONFIG_VIDEO
+ #define CONFIG_CMD_BMP
+@@ -146,18 +149,29 @@
+ 		"run fdt_fixup && bootz ${kernel_addr_r} - ${fdt_addr_r}\0" \
+ 
+ #define UBI_BOOTCMD	\
+-	"ubiargs=ubi.mtd=ubi root=ubi0:rootfs rootfstype=ubifs " \
++	"ubiargs=ubi.mtd=ubi rootfstype=ubifs " \
+ 		"ubi.fm_autoconvert=1\0" \
+-	"ubiboot=run setup; " \
+-		"setenv bootargs ${defargs} ${ubiargs} " \
+-		"${setupargs} ${vidargs}; echo Booting from NAND...; " \
+-		"ubi part ubi && " \
+-		"ubi read ${kernel_addr_r} kernel && " \
+-		"ubi read ${fdt_addr_r} dtb && " \
+-		"run fdt_fixup && bootz ${kernel_addr_r} - ${fdt_addr_r}\0" \
++	"ubiboot=run updatecheck; run setup; " \
++	"setenv bootargs ${defargs} ${ubiargs} root=ubi0:rootfs-${bootable_partition} " \
++	"${setupargs} ${vidargs}; echo Booting from NAND...; " \
++	"ubi part ubi && " \
++	"ubi read ${kernel_addr_r} kernel-${bootable_partition} && " \
++	"ubi read ${fdt_addr_r} dtb-${bootable_partition} && " \
++	"run fdt_fixup && bootz ${kernel_addr_r} - ${fdt_addr_r}\0" \
++
++#define CHANGE_BOOT_PARTITION	\
++	"changebootpartition=setexpr bootable_partition ${bootable_partition} + 1 && " \
++	"setexpr bootable_partition ${bootable_partition} % 2 && setenv updateinprogress 0 && " \
++	"saveenv\0" \
++
++#define UPDATE_CHECK	\
++	"updatecheck= pri updateinprogress && " \
++	"if test ${updateinprogress} -eq 1; then; echo 'update in progress on:' && pri bootable_partition && pri boottriesremaining && " \
++	"setexpr boottriesremaining ${boottriesremaining} - 1 && saveenv && pri boottriesremaining && " \
++	"if test ${boottriesremaining} -eq 0; then; run changebootpartition && " \
++	"echo 'Update has failed, return to partiton:' && pri bootable_partition; fi; else; echo 'boot'; fi;\0" \
+ 
+-#define CONFIG_BOOTCOMMAND "run ubiboot; " \
+-	"setenv fdtfile ${soc}-colibri-${fdt_board}.dtb && run distro_bootcmd;"
++#define CONFIG_BOOTCOMMAND "setenv fdtfile ${soc}-colibri-${fdt_board}.dtb; saveenv; run ubiboot; run distro_bootcmd;" \
+ 
+ #define BOOTENV_RUN_NET_USB_START ""
+ #define BOOT_TARGET_DEVICES(func) \
+@@ -175,11 +189,16 @@
+ 	NFS_BOOTCMD \
+ 	SD_BOOTCMD \
+ 	UBI_BOOTCMD \
++	CHANGE_BOOT_PARTITION \
++	UPDATE_CHECK \
+ 	"console=ttyLP0\0" \
+ 	"defargs=\0" \
+ 	"dfu_alt_info=" DFU_ALT_NAND_INFO "\0" \
+-	"fdt_board=eval-v3\0" \
++	"fdt_board=XMF1345-B_L2\0" \
+ 	"fdt_fixup=;\0" \
++	"bootable_partition=0\0" \
++	"updateinprogress=0\0" \
++	"boottriesremaining=4\0" \
+ 	"kernel_file=zImage\0" \
+ 	"mtdparts=" MTDPARTS_DEFAULT "\0" \
+ 	"setethupdate=if env exists ethaddr; then; else setenv ethaddr " \
+-- 
+2.7.4
+

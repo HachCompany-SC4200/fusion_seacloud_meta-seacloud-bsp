@@ -1,0 +1,626 @@
+From ebed67114fd38c855e4b6bb1db19de354ab3c9b6 Mon Sep 17 00:00:00 2001
+From: Guillaume Deroire <guillaume.deroire@hach.com>
+Date: Fri, 28 Oct 2016 12:22:19 +0200
+Subject: [PATCH] rl78
+
+---
+ drivers/misc/Kconfig         |   1 +
+ drivers/misc/Makefile        |   1 +
+ drivers/misc/hach/Kconfig    |  25 +++
+ drivers/misc/hach/Makefile   |   7 +
+ drivers/misc/hach/rl78_drv.c | 420 +++++++++++++++++++++++++++++++++++++++++++
+ drivers/misc/hach/rl78_drv.h | 110 ++++++++++++
+ 6 files changed, 564 insertions(+)
+ create mode 100644 drivers/misc/hach/Kconfig
+ create mode 100644 drivers/misc/hach/Makefile
+ create mode 100644 drivers/misc/hach/rl78_drv.c
+ create mode 100644 drivers/misc/hach/rl78_drv.h
+
+diff --git a/drivers/misc/Kconfig b/drivers/misc/Kconfig
+index 22892c7..b75da9c 100644
+--- a/drivers/misc/Kconfig
++++ b/drivers/misc/Kconfig
+@@ -537,4 +537,5 @@ source "drivers/misc/mic/Kconfig"
+ source "drivers/misc/genwqe/Kconfig"
+ source "drivers/misc/echo/Kconfig"
+ source "drivers/misc/cxl/Kconfig"
++source "drivers/misc/hach/Kconfig"
+ endmenu
+diff --git a/drivers/misc/Makefile b/drivers/misc/Makefile
+index 537d7f3..87977a0 100644
+--- a/drivers/misc/Makefile
++++ b/drivers/misc/Makefile
+@@ -56,3 +56,4 @@ obj-$(CONFIG_GENWQE)		+= genwqe/
+ obj-$(CONFIG_ECHO)		+= echo/
+ obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
+ obj-$(CONFIG_CXL_BASE)		+= cxl/
++obj-y				+= hach/
+diff --git a/drivers/misc/hach/Kconfig b/drivers/misc/hach/Kconfig
+new file mode 100644
+index 0000000..682281c
+--- /dev/null
++++ b/drivers/misc/hach/Kconfig
+@@ -0,0 +1,25 @@
++menuconfig HL_DRIVERS
++	boolean "HACH SeaCloud drivers support"
++	---help---
++	Hach specific linux drivers are supported here.
++
++if HL_DRIVERS
++#
++# RL78 driver configuration subsystem configuration
++#
++
++config RL78_VF50_SUPPORT
++	tristate "VF50 RL78 support setup"
++	default m
++	help
++      This control enables/disables the request handler for the
++      connected RL78 sub processors.
++      Each RL78 handles up to 3 probes which are connected with the
++      sub processor via Modbus. Each RL78 uses a seperate request line
++      and a common interrupt (IRQ) to notify the VF50 master of events.
++
++      If you want RL78 support, you should say Y here.
++
++      This RL78 support can also be built as a module.
++
++endif
+diff --git a/drivers/misc/hach/Makefile b/drivers/misc/hach/Makefile
+new file mode 100644
+index 0000000..8e32907
+--- /dev/null
++++ b/drivers/misc/hach/Makefile
+@@ -0,0 +1,7 @@
++#
++# Request lines from RL78 sub processors
++#
++EXTRA_CFLAGS	= -Wfatal-errors
++
++
++obj-$(CONFIG_RL78_VF50_SUPPORT)	+= rl78_drv.o
+diff --git a/drivers/misc/hach/rl78_drv.c b/drivers/misc/hach/rl78_drv.c
+new file mode 100644
+index 0000000..0457c0e
+--- /dev/null
++++ b/drivers/misc/hach/rl78_drv.c
+@@ -0,0 +1,420 @@
++/*
++    rl78_irq driver
++ */
++
++#include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/fs.h>
++#include <linux/slab.h>
++#include <linux/init.h>
++#include <linux/list.h>
++#include <linux/irq.h>
++#include <linux/i2c.h>
++#include <linux/i2c-dev.h>
++#include <linux/jiffies.h>
++#include <linux/uaccess.h>
++#include <linux/io.h>
++#include <linux/interrupt.h>
++#include <linux/sched.h>
++#include <linux/poll.h>
++#include <linux/gpio.h>
++
++#include <linux/spinlock.h>
++
++#include "rl78_drv.h"
++
++
++/*
++ * wait queue for RL78 request signalisation via IRQ lines
++ */
++DECLARE_WAIT_QUEUE_HEAD(rl78_irq_queue);
++
++/* irq flags */
++#define RL78_IRQ      0x1
++
++/* static irq_handler_t rl78_irq_handler; */
++static irqreturn_t rl78_irq_handler(int, void *);
++
++static int32_t rl78_req_line_read(void);
++
++static int rl78_irq_open(struct inode *inode, struct file *file);
++static unsigned int rl78_irq_poll(struct file *file, struct poll_table_struct *poll_table);
++static ssize_t rl78_irq_read(struct file *file, char __user *buf, size_t count, loff_t *offset);
++static int rl78_irq_release(struct inode *inode, struct file *file);
++
++static const struct file_operations rl78_irq_fops = {
++	.owner = THIS_MODULE,
++	.llseek       = no_llseek,
++	.open = rl78_irq_open,
++	.release = rl78_irq_release,
++	.read = rl78_irq_read,
++	.poll = rl78_irq_poll,
++};
++
++static int irqnumbers[ARRAY_SIZE(GpioTable)];
++
++static char rl78_irq_flags;
++
++spinlock_t flag_lock;
++
++
++/******************************************************************************
++ * rl78_irq_open
++ *   Initialises and configures the rl78 interrupt.
++ *
++ * Parameters:
++ *  inode - pointer to inode structure related to rl78 interrupt.
++ *  file  - pointer to file structure directly linked to rl78 interrupt
++ *          device file.
++ *
++ * Return Values:
++ *   0        - in case of success.
++ *   !=0        - in case of error.
++ *
++ *****************************************************************************/
++static int rl78_irq_open(struct inode *inode, struct file *file)
++{
++	unsigned long flags;
++
++	PDEBUG(KERN_DEBUG, "Open file\n");
++	spin_lock_irqsave(&flag_lock, flags);
++	rl78_irq_flags = 0;
++	spin_unlock_irqrestore(&flag_lock, flags);
++	return 0;
++}
++
++/******************************************************************************
++ * rl78_irq_release
++ *   Closes the rl78 interrupt device.
++ *
++ * Parameters:
++ *  inode - pointer to inode structure related to rl78 interrupt.
++ *  file - pointer to file structure directly linked to rl78 interrupt
++ *         device file.
++ *
++ * Return Values:
++ *   0      - always.
++ *
++ *****************************************************************************/
++static int rl78_irq_release(struct inode *inode, struct file *file)
++{
++	PDEBUG(KERN_DEBUG, "Released file\n");
++	return 0;
++}
++
++/******************************************************************************
++ * rl78_read_irq
++ * Reads i2c data from rl78 interface.
++ *
++ * Parameters:
++ *   file   - pointer to file structure related to rl78 device.
++ *   buf    - pointer to received data .
++ *   count  - amount of bytes to be read.
++ *   offset - unused.
++ *
++ * Return Values:
++ *   <0        - in case of error,
++ *   >0       - number of bytes received, in case of success.
++ *
++ * Remark:
++ *   Functionality is blocking until wake up from rl78 interrupt via
++ *   rl78_irq_queue.
++ *
++ *****************************************************************************/
++static ssize_t rl78_irq_read(struct file *file, char __user *buf, size_t count,
++			      loff_t *offset)
++{
++	ssize_t ret = 0;
++	int32_t req_lines = 0;
++	unsigned long flags;
++
++	spin_lock_irqsave(&flag_lock, flags);
++
++	req_lines = rl78_req_line_read();
++
++	/* clear rl78 interrupt flag */
++	rl78_irq_flags = rl78_irq_flags & ~RL78_IRQ;
++
++	spin_unlock_irqrestore(&flag_lock, flags);
++
++	if (count > sizeof(req_lines))
++		count = sizeof(req_lines);
++
++	ret = copy_to_user(buf, &req_lines, count) ? -EFAULT : ret;
++
++	PDEBUG(KERN_DEBUG, "Request lines: 0x%08X\n", req_lines);
++
++	return count;
++}
++
++/******************************************************************************
++ * rl78_req_line_read
++ *   Reads RL78 request lines
++ *
++ * Parameters:
++ *
++ * Return Values:
++ *   0 ... 18 - each bit represent a line (b0: IRQ0, b1: IRQ1 ...)
++ *   -1       - in case of invalid parameter passing
++ *
++ *****************************************************************************/
++static int32_t rl78_req_line_read(void)
++{
++	int32_t retval = 0;
++	unsigned int gpioIndex;
++
++	for (gpioIndex = 0; gpioIndex < ARRAY_SIZE(GpioTable); gpioIndex++)
++		retval |= (gpio_get_value(GpioTable[gpioIndex].gpio) ^ 0x01) << gpioIndex;
++
++	PDEBUG(KERN_DEBUG, "Request lines read: all GPIO: %i\n", retval);
++	return retval;
++}
++
++/******************************************************************************
++ * rl78_irq_poll
++ * Polls for rl78 interrupt occurence.
++ *
++ * Parameters:
++ *  file - pointer to file structure directly linked to openened
++ *         rl78 interrupt device file.
++ *  wait - pointer to poll_table structure.
++ *
++ * Return Values:
++ *   >0     - if i2c device file is ready for read,
++ *   0      - if i2c device is not ready for read.
++ *
++ *****************************************************************************/
++static unsigned int rl78_irq_poll(struct file *file,
++				  struct poll_table_struct *wait)
++{
++	unsigned int mask = 0;
++	char req_lines = 0;
++	char flag_cpy;
++	unsigned long flags;
++
++	poll_wait(file, &rl78_irq_queue, wait);
++
++/* PDEBUG(KERN_DEBUG "Poll - rl78_irq_flags: %02X\n", rl78_irq_flags); */
++
++	/*
++	 * check if RL78_IRQ has occurred and
++	 * at least one request line is active ->
++	 * device is ready to be read from
++	 */
++
++	spin_lock_irqsave(&flag_lock, flags);
++	flag_cpy = rl78_irq_flags;
++	spin_unlock_irqrestore(&flag_lock, flags);
++
++	if ((flag_cpy & RL78_IRQ) != 0) {
++		req_lines = rl78_req_line_read();
++		if (req_lines > 0) {
++			/* indicate data are available to be read on i2c */
++			mask |= POLLIN | POLLRDNORM;
++		} else {
++			/*
++			 * plausibility check,
++			 * interrupt without at least one active request
++			 * line should never occur
++			 */
++			if (req_lines == 0)
++				printk(KERN_DEBUG "Error: no RL78 Request(s) detected\n");
++		}
++	}
++
++	PDEBUG(KERN_DEBUG, "Poll returns %04X\n", mask);
++	return mask;
++}
++
++/******************************************************************************
++ * gpio_input_request
++ *   Closes the rl78 interrupt device.
++ *
++ * Parameters:
++ *
++ * Return Values:
++ *   0      - always.
++ *
++ *****************************************************************************/
++static void gpio_input_request(unsigned gpio, const char *label)
++{
++	int ret = 0;
++
++	ret = gpio_request(gpio, label);
++	if (ret < 0)
++		printk(KERN_DEBUG "GPIO %s (%d) request error: %d\n", label, gpio, ret);
++
++	ret = gpio_direction_input(gpio);
++	if (ret < 0)
++		printk(KERN_DEBUG "GPIO %s (%d) direction error: %d\n", label, gpio, ret);
++}
++
++/******************************************************************************
++ * rl78_irq_init
++ * Initialises the collective RL78 request interrupt via IRQ.
++ *
++ * Parameters:
++ *  None
++ *
++ * Return Values:
++ *   -EIO     - in case of error,
++ *   0        - in case of success.
++ *
++ *****************************************************************************/
++int __init rl78_irq_init(void)
++{
++	int ret = 0;
++	unsigned int gpioIndex;
++
++	/* Request GPIO */
++	PDEBUG(KERN_DEBUG, "Initialize RL78 IRQ IO\n");
++
++	for (gpioIndex = 0; gpioIndex < ARRAY_SIZE(GpioTable); gpioIndex++) {
++
++		/* Configure IRQ GPIO */
++		gpio_input_request(GpioTable[gpioIndex].gpio, GpioTable[gpioIndex].name);
++
++		/* Get IRQ number for the GPIO */
++		irqnumbers[gpioIndex] = gpio_to_irq(GpioTable[gpioIndex].gpio);
++		PDEBUG(KERN_DEBUG, "Init - gpio_to_irq - irqnumber: %d\n", irqnumbers[gpioIndex]);
++
++		/* request IRQ for RL78 requests */
++		ret = request_irq(irqnumbers[gpioIndex], rl78_irq_handler, IRQF_SHARED | IRQF_TRIGGER_FALLING, GpioTable[gpioIndex].name, (void *)(1 << gpioIndex));
++		if (ret < 0) {
++			printk(KERN_DEBUG "rl78_irq: ERR: request_irq(rl78,...) failed! (%d)\n", ret);
++			return -EIO;
++		}
++	}
++
++
++	/* Get IRQ Device */
++	PDEBUG(KERN_DEBUG, "rl78_irq_init - Register RL78 IRQ Device\n");
++	if (register_chrdev(RL78_IRQ_MAJOR, "rl78_irq", &rl78_irq_fops)) {
++		printk(KERN_DEBUG "rl78_irq: ERR: unable to get major %d for RL78_IRQ\n", RL78_IRQ_MAJOR);
++		return -EIO;
++	}
++
++	return 0;
++}
++
++/******************************************************************************
++ * rl78_irq_cleanup
++ * Cleanup the collective RL78 request interrupt
++ *
++ * Parameters:
++ *  None
++ *
++ * Return Values:
++ *   0        - in case of success.
++ *
++ *****************************************************************************/
++int rl78_irq_cleanup(void)
++{
++	unsigned long flags;
++	unsigned int gpioIndex;
++
++	PDEBUG(KERN_DEBUG, "Unregister RL78 IRQ Device\n");
++	unregister_chrdev(RL78_IRQ_MAJOR, "rl78_irq");
++
++	PDEBUG(KERN_DEBUG, "Closed all the IRQ IO\n");
++	/* free IRQ related to rl78 shared interrupt */
++	for (gpioIndex = 0; gpioIndex < ARRAY_SIZE(GpioTable); gpioIndex++)
++		free_irq(irqnumbers[gpioIndex], (void *)(1 << gpioIndex));
++
++
++	PDEBUG(KERN_DEBUG, "Release RL78 IRQ IO\n");
++	for (gpioIndex = 0; gpioIndex < ARRAY_SIZE(GpioTable); gpioIndex++)
++		gpio_free(GpioTable[gpioIndex].gpio);
++
++	spin_lock_irqsave(&flag_lock, flags);
++	rl78_irq_flags = 0;
++	spin_unlock_irqrestore(&flag_lock, flags);
++
++
++	return 0;
++}
++
++/******************************************************************************
++ * rl78_irq_handler
++ *   Handler for RL78 request interrupt.
++ *
++ * Parameters:
++ *   irq - interrupt number.
++ *   ptr  - .
++ *
++ * Return Values:
++ *   IRQ_HANDLED      - always.
++ *
++ * Remarks:
++ *
++ *****************************************************************************/
++static irqreturn_t rl78_irq_handler(int irq, void *ptr)
++{
++	unsigned long flags;
++	unsigned long flagsirq;
++
++	local_irq_save(flags);
++
++	PDEBUG(KERN_DEBUG, "IRQ handler called\n");
++
++	spin_lock_irqsave(&flag_lock, flagsirq);
++
++	/* set flag to indicate rl78 interrupt occurence */
++	rl78_irq_flags |= RL78_IRQ;
++
++	spin_unlock_irqrestore(&flag_lock, flagsirq);
++
++	/* wake up interrupt processing function and return from interrupt */
++	wake_up_interruptible(&rl78_irq_queue);
++	local_irq_restore(flags);
++
++	return IRQ_HANDLED;
++}
++
++
++/******************************************************************************
++ * rl78_init
++ *   =0       - in case of success.
++ *
++ * Remark:
++ *   Main initialisation function executed on driver initialisation.
++ *
++ *****************************************************************************/
++static int __init rl78_init(void)
++{
++	int ret = 0;
++
++	printk(KERN_DEBUG "Initializing RL78 IRQ Driver\n");
++#ifdef IRQ7_DISABLED
++	printk(KERN_NOTICE "IRQ7 disabled\n");
++#endif
++
++	spin_lock_init(&flag_lock);
++
++	ret = rl78_irq_init();
++
++	return ret;
++}
++
++/******************************************************************************
++ * rl78_exit
++ *
++ * Remark:
++ *   Main exit function executed on driver unload.
++ *
++ *****************************************************************************/
++static void __exit rl78_exit(void)
++{
++
++	printk(KERN_DEBUG "Remove RL78 IRQ Driver\n");
++
++	rl78_irq_cleanup();
++}
++
++MODULE_VERSION("1.1");
++MODULE_AUTHOR("Guillaume Deroire <guillaume.deroire@hach.com>");
++MODULE_DESCRIPTION("rl78 irq device driver");
++MODULE_LICENSE("GPL");
++
++module_init(rl78_init);
++module_exit(rl78_exit);
+diff --git a/drivers/misc/hach/rl78_drv.h b/drivers/misc/hach/rl78_drv.h
+new file mode 100644
+index 0000000..b1184f4
+--- /dev/null
++++ b/drivers/misc/hach/rl78_drv.h
+@@ -0,0 +1,110 @@
++/*******************************************************************************
++ *
++ * (C) Copyright 2014 Hach-Lange
++ *
++ * Project: Fusion
++ * Purpose: Contains definitions and for accessing RL78 interrupt and
++ *          request lines.
++ *
++ * File:  RL78_drv.h
++ * Desc:  Definitions for RL78 interrupt access.
++ *
++ * Revision History:
++ * 2014-07-17 created.
++ *
++ ********************************************************************************/
++
++#ifndef _RL78_DRV_H
++#define _RL78_DRV_H
++
++/* Uncomment to enable debug logs */
++/* #undef DEBUG */
++/* #define DEBUG */
++
++/* To test driver, you can use the following command to poll the rl78_irq content */
++/* while [ true ] ; do hexdump -v -C -n 4 /dev/rl78_irq; sleep 1; done; */
++
++#ifdef __KERNEL__
++#define RL78_IRQ_MAJOR  245    /* RL78 irq device major number */
++#endif
++
++/* 1345 v6 */
++/* IRQ0-19 */
++#define PTE11	116
++#define PTE15	120
++#define PTE27	132
++#define PTE23	128
++#define PTE19	124
++#define PTE28	133
++#define PTE24	129
++#define PTE9	114
++#define PTE10	115
++#define PTE17	122
++#define PTE25	130
++#define PTE26	131
++#define PTE2	107
++#define PTE8	113
++#define PTE7	112
++#define PTE20	125
++#define PTE18	123
++#define PTE16	121
++#define PTE4	109
++
++struct GpioDefinition {
++	unsigned int gpio;
++	char *name;
++};
++
++#define GPIO_DEFINITION(gpio) { gpio, "gpio" }
++
++// For 1345 v6
++#define RL78_IRQ1	PTE11
++#define RL78_IRQ2	PTE15
++#define RL78_IRQ3	PTE27
++#define RL78_IRQ4	PTE23
++#define RL78_IRQ5	PTE19
++#define RL78_IRQ6	PTE28
++#define RL78_IRQ7	PTE24
++#define RL78_IRQ8	PTE9
++#define RL78_IRQ9	PTE10
++#define RL78_IRQ10	PTE17
++#define RL78_IRQ11	PTE25
++#define RL78_IRQ12	PTE26
++#define RL78_IRQ13	PTE2
++#define RL78_IRQ14	PTE8
++#define RL78_IRQ15	PTE7
++#define RL78_IRQ16	PTE20
++#define RL78_IRQ17	PTE18
++#define RL78_IRQ18	PTE16
++#define RL78_IRQ19	PTE4
++
++struct GpioDefinition GpioTable[] = {
++	GPIO_DEFINITION(RL78_IRQ1),
++	GPIO_DEFINITION(RL78_IRQ2),
++	GPIO_DEFINITION(RL78_IRQ3),
++	GPIO_DEFINITION(RL78_IRQ4),
++	GPIO_DEFINITION(RL78_IRQ5),
++	GPIO_DEFINITION(RL78_IRQ6),
++	GPIO_DEFINITION(RL78_IRQ7),
++	GPIO_DEFINITION(RL78_IRQ8),
++	GPIO_DEFINITION(RL78_IRQ9),
++	GPIO_DEFINITION(RL78_IRQ10),
++	GPIO_DEFINITION(RL78_IRQ11),
++	GPIO_DEFINITION(RL78_IRQ12),
++	GPIO_DEFINITION(RL78_IRQ13),
++	GPIO_DEFINITION(RL78_IRQ14),
++	GPIO_DEFINITION(RL78_IRQ15),
++	GPIO_DEFINITION(RL78_IRQ16),
++	GPIO_DEFINITION(RL78_IRQ17),
++	GPIO_DEFINITION(RL78_IRQ18),
++	GPIO_DEFINITION(RL78_IRQ19)
++};
++
++#undef PDEBUG             /* undef it, just in case */
++#ifdef DEBUG
++	#define PDEBUG(level, fmt, args...) printk(level "rl78_drv: " fmt, ## args)
++#else
++	#define PDEBUG(level, fmt, args...) /* not debugging: nothing */
++#endif
++
++#endif
+-- 
+2.7.4
+

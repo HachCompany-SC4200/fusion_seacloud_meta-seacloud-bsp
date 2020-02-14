@@ -1,0 +1,85 @@
+From e857db4c165c920a35794dfb7f65d20e6ee2cabe Mon Sep 17 00:00:00 2001
+From: sorlandini <sandrine.orlandini@hach.com>
+Date: Wed, 1 Mar 2017 15:32:56 +0100
+Subject: [PATCH] 1345v6 reset signal mngt and switch on leds
+
+---
+ board/toradex/colibri_vf/colibri_vf.c | 55 +++++++++++++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)
+
+diff --git a/board/toradex/colibri_vf/colibri_vf.c b/board/toradex/colibri_vf/colibri_vf.c
+index 535d1a1..e8b2ed8 100644
+--- a/board/toradex/colibri_vf/colibri_vf.c
++++ b/board/toradex/colibri_vf/colibri_vf.c
+@@ -43,6 +43,23 @@ DECLARE_GLOBAL_DATA_PTR;
+ #define USB_PEN_GPIO           83
+ #define USB_CDET_GPIO		102
+ 
++/* Defines for Sea Cloud project ********************/
++/* Led signals */
++#define LED_USB_LOCAL_UI			92
++#define LED_STRENGTH1_LOCAL_UI			126
++#define LED_STRENGTH2_LOCAL_UI			127
++#define LED_STRENGTH3_LOCAL_UI			118 
++#define LED_STRENGTH4_LOCAL_UI			119
++#define LED_WIFI_LOCAL_UI			111
++#define LED_BLUETOOTH_LOCAL_UI			110  
++/****************************************************/
++/* Reset signals*/
++#define USB_HUB_RESET_SIGNAL			41
++#define RF_BOARD_RESET_SIGNAL			88	
++#define DUAL_ETH_RESET_SIGNAL			91
++#define MOTHER_BOARD_RL78_RESET_SIGNAL		44		
++#define CARRIER_BOARD_RESET_SIGNAL		27
++
+ static struct ddrmc_cr_setting colibri_vf_cr_settings[] = {
+ 	/* levelling */
+ 	{ DDRMC_CR97_WRLVL_EN, 97 },
+@@ -560,6 +577,44 @@ int board_init(void)
+ 
+ 	setbits_le32(&scsc->sosc_ctr, SCSC_SOSC_CTR_SOSC_EN);
+ 
++	#ifdef CONFIG_VYBRID_GPIO
++ 	/*Swicth on leds at startup*/
++		gpio_request(LED_STRENGTH1_LOCAL_UI, "usb-gpio");
++		gpio_direction_output(LED_STRENGTH1_LOCAL_UI, 1);
++
++		gpio_request(LED_USB_LOCAL_UI, "Strengh1-gpio");
++		gpio_direction_output(LED_USB_LOCAL_UI, 1);
++		gpio_request(LED_STRENGTH2_LOCAL_UI, "Strengh2-gpio");
++		gpio_direction_output(LED_STRENGTH2_LOCAL_UI, 1);
++		gpio_request(LED_STRENGTH3_LOCAL_UI, "Strengh3-gpio");
++		gpio_direction_output(LED_STRENGTH3_LOCAL_UI, 1);
++		gpio_request(LED_STRENGTH4_LOCAL_UI, "Strengh4-gpio");
++		gpio_direction_output(LED_STRENGTH4_LOCAL_UI, 1);
++
++		gpio_request(LED_WIFI_LOCAL_UI, "wifi-gpio");
++		gpio_direction_output(LED_WIFI_LOCAL_UI, 1);
++		gpio_request(LED_BLUETOOTH_LOCAL_UI, "btle-gpio");
++		gpio_direction_output(LED_BLUETOOTH_LOCAL_UI, 1);
++
++	/*For 1345 v6 modification: set reset line to 1*/
++		/*USB hub reset signal*/		
++		gpio_request(USB_HUB_RESET_SIGNAL, "reset-usb-gpio");
++		gpio_direction_output(USB_HUB_RESET_SIGNAL, 1);
++		/*RF module reset signal*/		
++		gpio_request(RF_BOARD_RESET_SIGNAL, "reset-rf-gpio");
++		gpio_direction_output(RF_BOARD_RESET_SIGNAL, 1);
++		/*Dual Ethernet reset signal*/		
++		gpio_request(DUAL_ETH_RESET_SIGNAL, "reset-dual-eth-gpio");
++		gpio_direction_output(DUAL_ETH_RESET_SIGNAL, 1);
++		/*1345 RL78 reset signal*/		
++		gpio_request(MOTHER_BOARD_RL78_RESET_SIGNAL, "reset-1345-rl78-gpio");
++		gpio_direction_output(MOTHER_BOARD_RL78_RESET_SIGNAL, 1);
++		/*Carrier board reset signal*/		
++		gpio_request(CARRIER_BOARD_RESET_SIGNAL, "reset-cb-gpio");
++		gpio_direction_output(CARRIER_BOARD_RESET_SIGNAL, 1);
++
++	#endif
++
+ #ifdef CONFIG_USB_EHCI_VF
+ 	gpio_request(USB_CDET_GPIO, "usb-cdet-gpio");
+ #endif
+-- 
+2.7.4
+

@@ -1,0 +1,25 @@
+From 79db225a9cf0b04c7fee20d460d410650e0e6202 Mon Sep 17 00:00:00 2001
+From: sorlandini <sandrine.orlandini@hach.com>
+Date: Wed, 1 Mar 2017 15:25:20 +0100
+Subject: [PATCH] Change prompt
+
+---
+ configs/colibri_vf_defconfig | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/configs/colibri_vf_defconfig b/configs/colibri_vf_defconfig
+index cf2d87a..6e747a1 100644
+--- a/configs/colibri_vf_defconfig
++++ b/configs/colibri_vf_defconfig
+@@ -8,7 +8,7 @@ CONFIG_BOOTDELAY=1
+ CONFIG_VERSION_VARIABLE=y
+ # CONFIG_DISPLAY_BOARDINFO is not set
+ CONFIG_HUSH_PARSER=y
+-CONFIG_SYS_PROMPT="Colibri VFxx # "
++CONFIG_SYS_PROMPT="SeaCloud # "
+ CONFIG_CMD_BOOTZ=y
+ # CONFIG_CMD_IMLS is not set
+ CONFIG_CMD_ASKENV=y
+-- 
+2.7.4
+
