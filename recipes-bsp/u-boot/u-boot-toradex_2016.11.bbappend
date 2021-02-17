@@ -19,7 +19,7 @@ SRC_URI_remove = "git://git.toradex.com/u-boot-toradex.git;branch=${SRCBRANCH}"
 SRC_URI_prepend = "git://github.com/HachCompany-SC4200/fusion_seacloud_u-boot.git;branch=${SRCBRANCH} "
 
 # To be used for master
-SRCREV = "89bc9dfbacf7b64507b7ea093d4b4562a1844a1a"
+SRCREV = "450b5d9b30dff5ea3f63c3155535549ff4a60c0a"
 SRCBRANCH="github_publication_SC4200"
 
 # To be use during development to follow automatically new commits
