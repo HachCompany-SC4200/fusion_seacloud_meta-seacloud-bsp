@@ -6,8 +6,9 @@ SRC_URI_append_colibri-vf-1345 = "\
         file://0003-Add-1345-dtb-files.patch \
         file://0004-gpio-led-add-retain_at_shutdown.patch \
         file://0005-Revert-L2-switch-modifications-for-2-ports-and-modul.patch \
-	file://0006-Add-RTL8812AU-preparations.patch \
-	file://0007-Add-RTL8812AU-driver.patch \
+        file://0006-Add-RTL8812AU-preparations.patch \
+        file://0007-Add-RTL8812AU-driver.patch \
+        file://0008-nvmem-Add-Vybrid-OCOTP-single-register-read-write-su.patch \
 "
 
 # Replace original Toradex git URL
@@ -15,7 +16,7 @@ SRC_URI_remove = "git://git.toradex.com/linux-toradex.git;protocol=git;branch=${
 SRC_URI_prepend = "git://github.com/HachCompany-SC4200/fusion_seacloud_linux.git;branch=${SRCBRANCH} "
 
 # To be used for master
-SRCREV = "3e7522580448c2bb9c68ce66f2b990974a10afa3"
+SRCREV = "11015f93d7fec3e8c0d0d6f473c60f7be0a51fb0"
 SRCBRANCH="github_publication_SC4200"
 
 # To be use during development to follow automatically new commits

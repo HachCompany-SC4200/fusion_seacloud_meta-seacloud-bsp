@@ -1,0 +1,355 @@
+From 192aefa996f9f21622cbf7d66c63058b316cb62c Mon Sep 17 00:00:00 2001
+From: Dragan Cecavac <dcecavac@witekio.com>
+Date: Fri, 13 Mar 2020 09:03:00 -0700
+Subject: [PATCH] nvmem: Add Vybrid OCOTP single register read/write support
+
+Signed-off-by: Dragan Cecavac <dcecavac@witekio.com>
+---
+ drivers/nvmem/vf610-ocotp.c | 285 +++++++++++++++++++++++++++++++++++-
+ 1 file changed, 282 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/nvmem/vf610-ocotp.c b/drivers/nvmem/vf610-ocotp.c
+index 8641319efeda..822c367c0e51 100644
+--- a/drivers/nvmem/vf610-ocotp.c
++++ b/drivers/nvmem/vf610-ocotp.c
+@@ -66,8 +66,35 @@ static const int base_to_fuse_addr_mappings[][2] = {
+ 	{0x400, 0x00},
+ 	{0x410, 0x01},
+ 	{0x420, 0x02},
++	{0x430, 0x03},
++	{0x440, 0x04},
+ 	{0x450, 0x05},
++	{0x460, 0x06},
++	{0x470, 0x07},
++	{0x480, 0x08},
++	{0x490, 0x09},
++	{0x4A0, 0x0A},
++	{0x4B0, 0x0B},
++	{0x4C0, 0x0C},
++	{0x4D0, 0x0D},
++	{0x4E0, 0x0E},
+ 	{0x4F0, 0x0F},
++	{0x500, 0x10},
++	{0x510, 0x11},
++	{0x520, 0x12},
++	{0x530, 0x13},
++	{0x540, 0x14},
++	{0x550, 0x15},
++	{0x560, 0x16},
++	{0x570, 0x17},
++	{0x580, 0x18},
++	{0x590, 0x19},
++	{0x5A0, 0x1A},
++	{0x5B0, 0x1B},
++	{0x5C0, 0x1C},
++	{0x5D0, 0x1D},
++	{0x5E0, 0x1E},
++	{0x5F0, 0x1F},
+ 	{0x600, 0x20},
+ 	{0x610, 0x21},
+ 	{0x620, 0x22},
+@@ -95,12 +122,78 @@ static const int base_to_fuse_addr_mappings[][2] = {
+ 	{0xCF0, 0x7F},
+ };
+ 
++/* OCOTP fuse register offsets */
++#define OCOTP_FUSE_OFFSET_LOCK			0x400
++#define OCOTP_FUSE_OFFSET_UNIQUE_ID1		0x410
++#define OCOTP_FUSE_OFFSET_UNIQUE_ID2		0x420
++#define OCOTP_FUSE_OFFSET_SOC_CFG1		0x430
++#define OCOTP_FUSE_OFFSET_SOC_CFG2		0x440
++#define OCOTP_FUSE_OFFSET_BOOT_CFG		0x450
++#define OCOTP_FUSE_OFFSET_SOC_CFG3		0x460
++#define OCOTP_FUSE_OFFSET_NAND_READ_CMD_CODE	0x470
++#define OCOTP_FUSE_OFFSET_TEMP_SENSE		0x4E0
++#define OCOTP_FUSE_OFFSET_USB_VIP_USB_PID	0x4F0
++#define OCOTP_FUSE_OFFSET_SRK_HASH1		0x580
++#define OCOTP_FUSE_OFFSET_SRK_HASH2		0x590
++#define OCOTP_FUSE_OFFSET_SRK_HASH3		0x5A0
++#define OCOTP_FUSE_OFFSET_SRK_HASH4		0x5B0
++#define OCOTP_FUSE_OFFSET_SRK_HASH5		0x5C0
++#define OCOTP_FUSE_OFFSET_SRK_HASH6		0x5D0
++#define OCOTP_FUSE_OFFSET_SRK_HASH7		0x5E0
++#define OCOTP_FUSE_OFFSET_SRK_HASH8		0x5F0
++#define OCOTP_FUSE_OFFSET_SJC_RESP1		0x600
++#define OCOTP_FUSE_OFFSET_SJC_RESP2		0x610
++#define OCOTP_FUSE_OFFSET_MAC_ADDR0		0x620
++#define OCOTP_FUSE_OFFSET_MAC_ADDR1		0x630
++#define OCOTP_FUSE_OFFSET_MAC_ADDR2		0x640
++#define OCOTP_FUSE_OFFSET_MAC_ADDR3		0x650
++#define OCOTP_FUSE_OFFSET_GP1			0x660
++#define OCOTP_FUSE_OFFSET_GP2			0x670
++#define OCOTP_FUSE_OFFSET_PAD_SETTINGS		0x6D0
++
++#define OCOTP_FUSE_SYSFS_PERMISSIONS		0644
++
++/* Generic fuse show function */
++#define VF610_OCOTP_FUSE_SHOW(NAME, OFFSET) \
++static ssize_t vf610_ocotp_ ## NAME ## _show( struct kobject *kobj, \
++	    struct kobj_attribute *attr, char *buf) \
++{ \
++	return vf610_ocotp_read_single_buffered(kobj, OFFSET, buf); \
++}
++
++/* Generic fuse store function */
++#define VF610_OCOTP_FUSE_STORE(NAME, OFFSET) \
++static ssize_t vf610_ocotp_ ## NAME ## _store( \
++	    struct kobject *kobj, struct kobj_attribute *attr, \
++	    const char *buf, size_t count) \
++{ \
++	return vf610_ocotp_write_single(kobj, OFFSET, (char*) buf, count); \
++}
++
++/* Generic fuse sysfs attributes */
++#define VF610_OCOTP_FUSE_ATTR(NAME, OFFSET) \
++static struct kobj_attribute NAME ## _attrb = \
++	__ATTR(NAME, OCOTP_FUSE_SYSFS_PERMISSIONS, \
++		    vf610_ocotp_ ## NAME ## _show, \
++		    vf610_ocotp_ ## NAME ## _store);
++
++/* Combination of previous generic fuse macros */
++#define VF610_OCOTP_FUSE_FILE(NAME, OFFSET) \
++VF610_OCOTP_FUSE_SHOW(NAME, OFFSET) \
++VF610_OCOTP_FUSE_STORE(NAME, OFFSET) \
++VF610_OCOTP_FUSE_ATTR(NAME, OFFSET)
++
++static struct kobj_type vf610_default_kobj_ktype = {
++	.sysfs_ops	= &kobj_sysfs_ops,
++};
++
+ struct vf610_ocotp {
+ 	void __iomem *base;
+ 	struct clk *clk;
+ 	struct device *dev;
+ 	struct nvmem_device *nvmem;
+ 	int timing;
++	struct kobject kobj;
+ };
+ 
+ static int vf610_ocotp_wait_busy(void __iomem *base)
+@@ -152,9 +245,12 @@ static int vf610_get_fuse_address(int base_addr_offset)
+ 	return -EINVAL;
+ }
+ 
+-static int vf610_ocotp_write(void *context, const void *data, size_t count)
++static int vf610_ocotp_write_bulk(void *context, const void *data, size_t count)
+ {
+-	return 0;
++	struct vf610_ocotp *ocotp = context;
++	dev_err(ocotp->dev, "%s not implemented\n", __func__);
++
++	return -ENOSYS;
+ }
+ 
+ static int vf610_ocotp_read(void *context,
+@@ -212,9 +308,106 @@ static int vf610_ocotp_read(void *context,
+ 	return 0;
+ }
+ 
++static ssize_t vf610_ocotp_read_single(struct kobject *kobj, unsigned offset)
++{
++	unsigned value;
++	struct vf610_ocotp *ocotp = container_of(kobj, struct vf610_ocotp,
++		    kobj);
++
++	vf610_ocotp_read(ocotp, &offset, 0, &value, 1);
++
++	return value;
++}
++
++static ssize_t vf610_ocotp_read_single_buffered(struct kobject *kobj,
++	    unsigned offset, char *buf)
++{
++	unsigned value = vf610_ocotp_read_single(kobj, offset);
++
++	return sprintf(buf, "%x\n", value);
++}
++
++static int vf610_ocotp_is_zero(struct kobject *kobj, unsigned offset)
++{
++	return vf610_ocotp_read_single(kobj, offset) == 0;
++}
++
++
++static int vf610_ocotp_write_successful(struct kobject *kobj, unsigned offset,
++	    unsigned value) {
++	return vf610_ocotp_read_single(kobj, offset) == value;
++}
++
++static int vf610_ocotp_write(void *context, const void *off, unsigned value)
++{
++	struct vf610_ocotp *ocotp = context;
++	void __iomem *base = ocotp->base;
++	unsigned int offset = *(u32 *)off;
++	int fuse_addr;
++	int ret;
++	u32 reg;
++
++	fuse_addr = vf610_get_fuse_address(offset);
++	if (fuse_addr > 0) {
++		writel(ocotp->timing, base + OCOTP_TIMING);
++		ret = vf610_ocotp_wait_busy(base + OCOTP_CTRL_REG);
++		if (ret)
++			return ret;
++
++		reg = readl(base + OCOTP_CTRL_REG);
++		reg &= ~OCOTP_CTRL_ADDR_MASK;
++		reg &= ~OCOTP_CTRL_WR_UNLOCK_MASK;
++		reg |= BF(fuse_addr, OCOTP_CTRL_ADDR);
++		reg |= BF(OCOTP_CTRL_WR_UNLOCK_KEY, OCOTP_CTRL_WR_UNLOCK);
++		writel(reg, base + OCOTP_CTRL_REG);
++		writel(value, base + OCOTP_DATA);
++		ret = vf610_ocotp_wait_busy(base + OCOTP_CTRL_REG);
++		if (ret)
++			return ret;
++
++		if (readl(base) & OCOTP_CTRL_ERR) {
++			dev_err(ocotp->dev, "Error writing to fuse addr %x\n",
++				    fuse_addr);
++			writel(OCOTP_CTRL_ERR, base + OCOTP_CTRL_CLR);
++			return -EIO;
++		}
++	}
++
++
++	if (!vf610_ocotp_write_successful(&ocotp->kobj, offset, value)) {
++		dev_err(ocotp->dev, "Fuse write/read verification failed\n");
++		return -EIO;
++	}
++
++	return 0;
++}
++
++static ssize_t vf610_ocotp_write_single(struct kobject *kobj, unsigned offset,
++	    char *buf, ssize_t count)
++{
++	int ret;
++	unsigned value;
++	struct vf610_ocotp *ocotp = container_of(kobj, struct vf610_ocotp,kobj);
++
++	if (!vf610_ocotp_is_zero(kobj, offset)) {
++		dev_warn(ocotp->dev, "Fuse register already burnt\n");
++		return -EADDRINUSE;
++	}
++
++	sscanf(buf, "%x", &value);
++
++	ret = vf610_ocotp_write(ocotp, &offset, value);
++	if (ret) {
++		dev_err(ocotp->dev, "Fuse write failed\n");
++		return ret;
++	}
++
++	return count;
++}
++
+ static struct regmap_bus vf610_ocotp_bus = {
+ 	.read = vf610_ocotp_read,
+-	.write = vf610_ocotp_write,
++	.write = vf610_ocotp_write_bulk,
+ 	.reg_format_endian_default = REGMAP_ENDIAN_NATIVE,
+ 	.val_format_endian_default = REGMAP_ENDIAN_NATIVE,
+ };
+@@ -243,6 +436,87 @@ static int vf610_ocotp_remove(struct platform_device *pdev)
+ 	return nvmem_unregister(ocotp_dev->nvmem);
+ }
+ 
++VF610_OCOTP_FUSE_FILE(LOCK ,OCOTP_FUSE_OFFSET_LOCK)
++VF610_OCOTP_FUSE_FILE(UNIQUE_ID1 ,OCOTP_FUSE_OFFSET_UNIQUE_ID1)
++VF610_OCOTP_FUSE_FILE(UNIQUE_ID2 ,OCOTP_FUSE_OFFSET_UNIQUE_ID2)
++VF610_OCOTP_FUSE_FILE(SOC_CFG1 ,OCOTP_FUSE_OFFSET_SOC_CFG1)
++VF610_OCOTP_FUSE_FILE(SOC_CFG2 ,OCOTP_FUSE_OFFSET_SOC_CFG2)
++VF610_OCOTP_FUSE_FILE(BOOT_CFG ,OCOTP_FUSE_OFFSET_BOOT_CFG)
++VF610_OCOTP_FUSE_FILE(SOC_CFG3 ,OCOTP_FUSE_OFFSET_SOC_CFG3)
++VF610_OCOTP_FUSE_FILE(NRCC ,OCOTP_FUSE_OFFSET_NAND_READ_CMD_CODE)
++VF610_OCOTP_FUSE_FILE(TEMP_SENSE ,OCOTP_FUSE_OFFSET_TEMP_SENSE)
++VF610_OCOTP_FUSE_FILE(UVUP ,OCOTP_FUSE_OFFSET_USB_VIP_USB_PID)
++VF610_OCOTP_FUSE_FILE(SH1 ,OCOTP_FUSE_OFFSET_SRK_HASH1)
++VF610_OCOTP_FUSE_FILE(SH2 ,OCOTP_FUSE_OFFSET_SRK_HASH2)
++VF610_OCOTP_FUSE_FILE(SH3 ,OCOTP_FUSE_OFFSET_SRK_HASH3)
++VF610_OCOTP_FUSE_FILE(SH4 ,OCOTP_FUSE_OFFSET_SRK_HASH4)
++VF610_OCOTP_FUSE_FILE(SH5 ,OCOTP_FUSE_OFFSET_SRK_HASH5)
++VF610_OCOTP_FUSE_FILE(SH6 ,OCOTP_FUSE_OFFSET_SRK_HASH6)
++VF610_OCOTP_FUSE_FILE(SH7 ,OCOTP_FUSE_OFFSET_SRK_HASH7)
++VF610_OCOTP_FUSE_FILE(SH8 ,OCOTP_FUSE_OFFSET_SRK_HASH8)
++VF610_OCOTP_FUSE_FILE(SJC_R1 ,OCOTP_FUSE_OFFSET_SJC_RESP1)
++VF610_OCOTP_FUSE_FILE(SJC_R2 ,OCOTP_FUSE_OFFSET_SJC_RESP2)
++VF610_OCOTP_FUSE_FILE(MAC0 ,OCOTP_FUSE_OFFSET_MAC_ADDR0)
++VF610_OCOTP_FUSE_FILE(MAC1 ,OCOTP_FUSE_OFFSET_MAC_ADDR1)
++VF610_OCOTP_FUSE_FILE(MAC2 ,OCOTP_FUSE_OFFSET_MAC_ADDR2)
++VF610_OCOTP_FUSE_FILE(MAC3 ,OCOTP_FUSE_OFFSET_MAC_ADDR3)
++VF610_OCOTP_FUSE_FILE(GP1 ,OCOTP_FUSE_OFFSET_GP1)
++VF610_OCOTP_FUSE_FILE(GP2 ,OCOTP_FUSE_OFFSET_GP2)
++VF610_OCOTP_FUSE_FILE(PAD ,OCOTP_FUSE_OFFSET_PAD_SETTINGS)
++
++const struct attribute *vf610_ocotp_fuse_files_attr[] = {
++	&LOCK_attrb.attr,
++	&UNIQUE_ID1_attrb.attr,
++	&UNIQUE_ID2_attrb.attr,
++	&SOC_CFG1_attrb.attr,
++	&SOC_CFG2_attrb.attr,
++	&BOOT_CFG_attrb.attr,
++	&SOC_CFG3_attrb.attr,
++	&NRCC_attrb.attr,
++	&TEMP_SENSE_attrb.attr,
++	&UVUP_attrb.attr,
++	&SH1_attrb.attr,
++	&SH2_attrb.attr,
++	&SH3_attrb.attr,
++	&SH4_attrb.attr,
++	&SH5_attrb.attr,
++	&SH6_attrb.attr,
++	&SH7_attrb.attr,
++	&SH8_attrb.attr,
++	&SJC_R1_attrb.attr,
++	&SJC_R2_attrb.attr,
++	&MAC0_attrb.attr,
++	&MAC1_attrb.attr,
++	&MAC2_attrb.attr,
++	&MAC3_attrb.attr,
++	&GP1_attrb.attr,
++	&GP2_attrb.attr,
++	&PAD_attrb.attr,
++};
++
++static int vf610_ocotp_init_sysfs(struct kobject *kobj, struct device *dev)
++{
++	int i, ret;
++
++	kobject_init(kobj, &vf610_default_kobj_ktype);
++	ret = kobject_add(kobj, NULL, "%s", "vf610-ocotp");
++	if (ret) {
++		dev_err(dev, "%s: kobject_add error: %d\n", __func__, ret);
++		kobject_put(kobj);
++		return ret;
++	}
++
++	for (i = 0; i < ARRAY_SIZE(vf610_ocotp_fuse_files_attr); i++) {
++		ret = sysfs_create_file(kobj, vf610_ocotp_fuse_files_attr[i]);
++		if (ret) {
++			sysfs_remove_dir(kobj);
++			return ret;
++		}
++	}
++
++	return 0;
++}
++
+ static int vf610_ocotp_probe(struct platform_device *pdev)
+ {
+ 	struct device *dev = &pdev->dev;
+@@ -285,6 +559,11 @@ static int vf610_ocotp_probe(struct platform_device *pdev)
+ 
+ 	ocotp_dev->timing = vf610_ocotp_calculate_timing(ocotp_dev);
+ 
++	if (vf610_ocotp_init_sysfs(&ocotp_dev->kobj, dev)) {
++		nvmem_unregister(ocotp_dev->nvmem);
++		return -EINVAL;
++	}
++
+ 	return 0;
+ }
+ 
+-- 
+2.17.1
+
